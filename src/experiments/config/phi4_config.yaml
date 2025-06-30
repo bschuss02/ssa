@@ -28,6 +28,7 @@ recording:
 # Device and optimization settings
 device:
   use_mps: true # Use Metal Performance Shaders on Mac
+  force_cpu: false # Force CPU usage even if MPS/CUDA available
   disable_flash_attention: true # Required for Mac M4 compatibility
   low_cpu_mem_usage: true
 

@@ -97,9 +97,10 @@ class AudioRecorder:
 class Phi4MultimodalInference:
     """Handle Phi-4 multimodal model loading and inference"""
 
-    def __init__(self, model_cache_dir: str = "/Users/Benjamin/dev/ssa/models"):
+    def __init__(self, model_cache_dir: str = "/Users/Benjamin/dev/ssa/models", force_cpu: bool = False):
         self.model_cache_dir = Path(model_cache_dir)
         self.model_cache_dir.mkdir(parents=True, exist_ok=True)
+        self.force_cpu = force_cpu
 
         self.model = None
         self.processor = None
@@ -107,14 +108,27 @@ class Phi4MultimodalInference:
 
     def _get_device(self) -> str:
         """Determine the best device to use"""
-        if torch.backends.mps.is_available():
-            return "mps"
-        elif torch.cuda.is_available():
-            return "cuda"
-        else:
+        if self.force_cpu:
+            logger.info("Forcing CPU device usage (force_cpu=True)")
             return "cpu"
 
-    def load_model(self, model_name: str = "microsoft/Phi-4", use_4bit: bool = True):
+        try:
+            if torch.backends.mps.is_available():
+                # Test MPS functionality with a simple tensor operation
+                test_tensor = torch.ones(1).to("mps")
+                _ = test_tensor + 1
+                logger.info("MPS device available and functional")
+                return "mps"
+        except Exception as e:
+            logger.warning(f"MPS device available but not functional: {e}")
+
+        if torch.cuda.is_available():
+            return "cuda"
+        else:
+            logger.info("Using CPU device")
+            return "cpu"
+
+    def load_model(self, model_name: str = "microsoft/Phi-4-multimodal-instruct", use_4bit: bool = True):
         """Load the Phi-4 multimodal model with optimizations for Mac M4"""
         logger.info(f"Loading model: {model_name}")
         logger.info(f"Using device: {self.device}")
@@ -124,17 +138,20 @@ class Phi4MultimodalInference:
             # Configure quantization for memory efficiency
             quantization_config = None
             if (
-                use_4bit and self.device != "mps" and BITSANDBYTES_AVAILABLE
-            ):  # 4-bit quantization doesn't work well with MPS
+                use_4bit
+                and self.device != "mps"
+                and self.device != "cpu"  # Disable quantization for CPU
+                and BITSANDBYTES_AVAILABLE
+            ):  # 4-bit quantization doesn't work well with MPS or CPU
                 quantization_config = BitsAndBytesConfig(
                     load_in_4bit=True,
                     bnb_4bit_compute_dtype=torch.float16,
                     bnb_4bit_use_double_quant=True,
                     bnb_4bit_quant_type="nf4",
                 )
-            elif use_4bit and not BITSANDBYTES_AVAILABLE:
+            elif use_4bit and (not BITSANDBYTES_AVAILABLE or self.device in ["mps", "cpu"]):
                 logger.warning(
-                    "4-bit quantization requested but bitsandbytes not available - using full precision"
+                    f"4-bit quantization requested but not supported on {self.device} device or bitsandbytes not available - using full precision"
                 )
 
             # Load processor
@@ -175,18 +192,100 @@ class Phi4MultimodalInference:
 
             # Monkey patch to fix PEFT compatibility issue
             from transformers.generation.utils import GenerationMixin
+            import types
+
+            # Patch the Phi4MMModel class before loading
+            try:
+                # Import the model module
+                import importlib.util
+                import sys
+                from transformers.models.auto.modeling_auto import _get_model_class
+
+                # Create a dummy prepare_inputs_for_generation method
+                def dummy_prepare_inputs_for_generation(self, input_ids, **kwargs):
+                    """Dummy method for PEFT compatibility"""
+                    return {"input_ids": input_ids, **kwargs}
+
+                # Try to patch the model class before instantiation
+                logger.info("Patching model class for PEFT compatibility...")
+
+                # Pre-emptively patch any model classes that might be loaded
+                try:
+                    # Load the model without instantiating to get the class
+                    from transformers import AutoConfig
+
+                    temp_config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
+
+                    # Get the model class
+                    from transformers.models.auto.modeling_auto import MODEL_FOR_CAUSAL_LM_MAPPING
+
+                    model_class = AutoModelForCausalLM._get_model_class(
+                        temp_config, MODEL_FOR_CAUSAL_LM_MAPPING
+                    )
+
+                    # Patch any nested model classes
+                    if hasattr(model_class, "__module__") and "phi4mm" in model_class.__module__:
+                        logger.info(f"Patching {model_class.__name__}...")
+
+                        # Try to get the nested model class
+                        module = importlib.import_module(model_class.__module__)
+                        if hasattr(module, "Phi4MMModel"):
+                            phi4mm_class = getattr(module, "Phi4MMModel")
+                            if not hasattr(phi4mm_class, "prepare_inputs_for_generation"):
+                                phi4mm_class.prepare_inputs_for_generation = (
+                                    dummy_prepare_inputs_for_generation
+                                )
+                                logger.info("Successfully patched Phi4MMModel class")
+
+                except Exception as patch_error:
+                    logger.warning(f"Pre-patch failed, will try post-load patch: {patch_error}")
+
+            except Exception as e:
+                logger.warning(f"Could not pre-patch model class: {e}")
 
             self.model = AutoModelForCausalLM.from_pretrained(model_name, **model_kwargs)
 
-            # Add missing method if it doesn't exist
-            if not hasattr(self.model.model, "prepare_inputs_for_generation"):
-                logger.info("Adding missing prepare_inputs_for_generation method...")
-                self.model.model.prepare_inputs_for_generation = (
-                    GenerationMixin.prepare_inputs_for_generation.__get__(self.model.model)
+            # Post-load patch as backup
+            if hasattr(self.model, "model") and not hasattr(
+                self.model.model, "prepare_inputs_for_generation"
+            ):
+                logger.info("Adding missing prepare_inputs_for_generation method post-load...")
+
+                def prepare_inputs_for_generation(self, input_ids, **kwargs):
+                    """Fallback method for PEFT compatibility"""
+                    return {"input_ids": input_ids, **kwargs}
+
+                self.model.model.prepare_inputs_for_generation = types.MethodType(
+                    prepare_inputs_for_generation, self.model.model
                 )
 
-            # Move to device (only if not using quantization on MPS)
-            if not (use_4bit and self.device == "mps" and BITSANDBYTES_AVAILABLE):
+            # Move to device with better handling for multimodal models
+            try:
+                if use_4bit and self.device == "mps" and not BITSANDBYTES_AVAILABLE:
+                    # For MPS without bitsandbytes, we need to be more careful
+                    logger.info("Moving model to MPS device...")
+                    self.model = self.model.to(self.device)
+                elif not use_4bit:
+                    # For non-quantized models, move normally
+                    logger.info(f"Moving model to {self.device} device...")
+                    self.model = self.model.to(self.device)
+                else:
+                    # For other cases (CUDA with quantization), the model is already on the right device
+                    logger.info(f"Model will remain on current device (quantization enabled)")
+
+                # Verify model device
+                if hasattr(self.model, "device"):
+                    actual_device = str(self.model.device)
+                elif hasattr(self.model, "parameters"):
+                    actual_device = str(next(self.model.parameters()).device)
+                else:
+                    actual_device = "unknown"
+                logger.info(f"Model device after loading: {actual_device}")
+
+            except Exception as device_error:
+                logger.warning(f"Failed to move model to {self.device}: {device_error}")
+                logger.info("Falling back to CPU device")
+                self.device = "cpu"
                 self.model = self.model.to(self.device)
 
             # Set model to evaluation mode
@@ -251,9 +350,20 @@ class Phi4MultimodalInference:
         try:
             processed_inputs = self.processor(**inputs, return_tensors="pt", padding=True)
 
-            # Move inputs to device
+            # Verify model device before moving inputs
+            if hasattr(self.model, "device"):
+                model_device = str(self.model.device)
+            elif hasattr(self.model, "parameters"):
+                model_device = str(next(self.model.parameters()).device)
+            else:
+                model_device = self.device
+
+            logger.info(f"Model device: {model_device}, Target device: {self.device}")
+
+            # Move inputs to the same device as the model
+            target_device = model_device if model_device != "unknown" else self.device
             processed_inputs = {
-                k: v.to(self.device) if isinstance(v, torch.Tensor) else v
+                k: v.to(target_device) if isinstance(v, torch.Tensor) else v
                 for k, v in processed_inputs.items()
             }
 
@@ -269,6 +379,15 @@ class Phi4MultimodalInference:
                     eos_token_id=self.processor.tokenizer.eos_token_id,
                     use_cache=True,
                 )
+
+                # Add input_mode for multimodal model
+                if audio_path:
+                    processed_inputs["input_mode"] = 1  # SPEECH mode
+                else:
+                    processed_inputs["input_mode"] = 3  # LANGUAGE mode
+
+                # Explicitly set num_logits_to_keep to avoid None error
+                processed_inputs["num_logits_to_keep"] = 0
 
                 outputs = self.model.generate(**processed_inputs, generation_config=generation_config)
 
@@ -306,7 +425,9 @@ def main(cfg: DictConfig) -> None:
 
         # Initialize components
         logger.info("Initializing Phi-4 Multimodal Inference...")
-        phi4 = Phi4MultimodalInference(model_cache_dir=cfg.model.cache_dir)
+        phi4 = Phi4MultimodalInference(
+            model_cache_dir=cfg.model.cache_dir, force_cpu=cfg.device.get("force_cpu", False)
+        )
 
         # Load model
         phi4.load_model(cfg.model.name, use_4bit=cfg.model.use_4bit)
