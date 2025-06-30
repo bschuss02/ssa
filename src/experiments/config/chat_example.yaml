@@ -23,13 +23,13 @@ input:
     - role: system
       content: "You are a helpful assistant."
     - role: user
-      content: "What is the capital of France"
+      content: "Transcribe what you hear in this audio recording"
 
   # System message (optional) - already included in messages above
   system_message: null
 
   # Audio input (optional)
-  audio_path: null
+  audio_path: /Users/Benjamin/dev/ssa/data/benji_audio/fluent.m4a
 
 # Audio recording settings
 recording:

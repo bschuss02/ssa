@@ -325,20 +325,14 @@ class Phi4MultimodalInference:
             logger.error(f"Error loading model: {e}")
             raise
 
-    def load_audio(self, audio_path: str) -> torch.Tensor:
+    def load_audio(self, audio_path: str) -> Tuple[np.ndarray, int]:
         """Load and preprocess audio file"""
         try:
             # Load audio using librosa for better compatibility
             audio, sr = librosa.load(audio_path, sr=16000)  # Phi-4 typically expects 16kHz
 
-            # Convert to tensor
-            audio_tensor = torch.from_numpy(audio).float()
-
-            # Ensure it's the right shape (add batch dimension if needed)
-            if audio_tensor.dim() == 1:
-                audio_tensor = audio_tensor.unsqueeze(0)
-
-            return audio_tensor
+            # Return as numpy array and sample rate tuple for processor
+            return audio, sr
 
         except Exception as e:
             logger.error(f"Error loading audio from {audio_path}: {e}")
@@ -399,6 +393,22 @@ class Phi4MultimodalInference:
                 if not text_prompt.endswith("Assistant:"):
                     text_prompt += "\nAssistant:"
 
+            # Add audio placeholder token if audio is provided
+            if audio_path:
+                # Insert audio token in the appropriate place in the prompt
+                # For Phi-4 multimodal, audio token should be in the user message
+                if "<|user|>" in text_prompt and "<|end|>" in text_prompt:
+                    # Find the user section and add audio token after <|user|>
+                    user_start = text_prompt.find("<|user|>")
+                    user_end = text_prompt.find("<|end|>", user_start)
+                    if user_start != -1 and user_end != -1:
+                        user_content = text_prompt[user_start + 8 : user_end]  # 8 is len("<|user|>")
+                        # Add audio token at the beginning of user content
+                        new_user_content = "<|audio_1|>" + user_content
+                        text_prompt = (
+                            text_prompt[: user_start + 8] + new_user_content + text_prompt[user_end:]
+                        )
+
             logger.info(f"Formatted prompt: {text_prompt[:200]}...")
 
         except Exception as e:
@@ -408,17 +418,21 @@ class Phi4MultimodalInference:
             for message in messages:
                 role = message.get("role", "user")
                 content = message.get("content", "")
-                text_prompt += f"{role.capitalize()}: {content}\n"
+                if role == "user" and audio_path:
+                    # Add audio token for user message when audio is provided
+                    text_prompt += f"{role.capitalize()}: <|audio_1|>{content}\n"
+                else:
+                    text_prompt += f"{role.capitalize()}: {content}\n"
             text_prompt += "Assistant:"
 
         # Prepare inputs
         inputs = {"text": text_prompt}
 
-        # Add audio if provided
+        # Add audio if provided - use correct format: audios parameter with list of (audio, samplerate) tuples
         if audio_path:
             logger.info(f"Loading audio from: {audio_path}")
-            audio_tensor = self.load_audio(audio_path)
-            inputs["audio"] = audio_tensor
+            audio, samplerate = self.load_audio(audio_path)
+            inputs["audios"] = [(audio, samplerate)]  # Note: 'audios' plural and list of tuples
 
         # Process inputs
         try:
@@ -506,7 +520,7 @@ class Phi4MultimodalInference:
             raise
 
 
-@hydra.main(version_base=None, config_path="config", config_name="phi4_config")
+@hydra.main(version_base=None, config_path="config", config_name="chat_example")
 def main(cfg: DictConfig) -> None:
     """Main function for Phi-4 multimodal inference using Hydra configuration"""
 
@@ -609,12 +623,6 @@ def main(cfg: DictConfig) -> None:
                 "model": cfg.model.name,
                 "config": OmegaConf.to_container(cfg, resolve=True),
             }
-
-            output_file = cfg.logging.results_file or f"inference_results_{int(time.time())}.json"
-            with open(output_file, "w") as f:
-                json.dump(results, f, indent=2)
-
-            logger.info(f"Results saved to: {output_file}")
 
     except KeyboardInterrupt:
         logger.info("Operation cancelled by user")
