@@ -29,7 +29,7 @@ input:
   system_message: null
 
   # Audio input (optional)
-  audio_path: /Users/Benjamin/dev/ssa/data/benji_audio/fluent.m4a
+  audio_path: /Users/Benjamin/dev/ssa/data/benji_audio/fluent_1.m4a
 
 # Audio recording settings
 recording:

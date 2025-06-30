@@ -217,60 +217,76 @@ class Phi4MultimodalInference:
             if quantization_config:
                 model_kwargs["quantization_config"] = quantization_config
 
-            # Monkey patch to fix PEFT compatibility issue
-            from transformers.generation.utils import GenerationMixin
+            # Monkey patch to fix PEFT compatibility issue using import hook
             import types
+            import sys
+            import importlib.util
 
-            # Patch the Phi4MMModel class before loading
-            try:
-                # Import the model module
-                import importlib.util
-                import sys
-                from transformers.models.auto.modeling_auto import _get_model_class
+            # Create the missing method for PEFT compatibility
+            def prepare_inputs_for_generation(self, input_ids, **kwargs):
+                """Method required by PEFT for compatibility with generation"""
+                # For most models, this just returns the input_ids and kwargs
+                # The actual preparation is handled by the main model's prepare_inputs_for_generation
+                model_kwargs = kwargs.copy()
+                model_kwargs["input_ids"] = input_ids
+                return model_kwargs
 
-                # Create a dummy prepare_inputs_for_generation method
-                def dummy_prepare_inputs_for_generation(self, input_ids, **kwargs):
-                    """Dummy method for PEFT compatibility"""
-                    return {"input_ids": input_ids, **kwargs}
+            logger.info("Attempting to patch Phi4MMModel for PEFT compatibility...")
 
-                # Try to patch the model class before instantiation
-                logger.info("Patching model class for PEFT compatibility...")
+            # Simple and direct approach: patch using monkey patching during import
+            original_import = __import__
 
-                # Pre-emptively patch any model classes that might be loaded
-                try:
-                    # Load the model without instantiating to get the class
-                    from transformers import AutoConfig
+            def patching_import(*args, **kwargs):
+                module = original_import(*args, **kwargs)
 
-                    temp_config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
-
-                    # Get the model class
-                    from transformers.models.auto.modeling_auto import MODEL_FOR_CAUSAL_LM_MAPPING
-
-                    model_class = AutoModelForCausalLM._get_model_class(
-                        temp_config, MODEL_FOR_CAUSAL_LM_MAPPING
-                    )
-
-                    # Patch any nested model classes
-                    if hasattr(model_class, "__module__") and "phi4mm" in model_class.__module__:
-                        logger.info(f"Patching {model_class.__name__}...")
-
-                        # Try to get the nested model class
-                        module = importlib.import_module(model_class.__module__)
-                        if hasattr(module, "Phi4MMModel"):
-                            phi4mm_class = getattr(module, "Phi4MMModel")
+                # Check all newly imported modules
+                for module_name in list(sys.modules.keys()):
+                    if "phi4mm" in module_name and "modeling" in module_name:
+                        module_obj = sys.modules[module_name]
+                        if hasattr(module_obj, "Phi4MMModel"):
+                            phi4mm_class = getattr(module_obj, "Phi4MMModel")
                             if not hasattr(phi4mm_class, "prepare_inputs_for_generation"):
-                                phi4mm_class.prepare_inputs_for_generation = (
-                                    dummy_prepare_inputs_for_generation
-                                )
-                                logger.info("Successfully patched Phi4MMModel class")
+                                phi4mm_class.prepare_inputs_for_generation = prepare_inputs_for_generation
+                                logger.info(f"Successfully patched Phi4MMModel in module {module_name}")
 
-                except Exception as patch_error:
-                    logger.warning(f"Pre-patch failed, will try post-load patch: {patch_error}")
+                return module
 
+            # Temporarily replace __import__
+            import builtins
+
+            builtins.__import__ = patching_import
+
+            try:
+                self.model = AutoModelForCausalLM.from_pretrained(model_name, **model_kwargs)
             except Exception as e:
-                logger.warning(f"Could not pre-patch model class: {e}")
+                # Before re-raising, try one more direct patch attempt
+                logger.warning(f"Model loading failed with: {e}")
+                logger.info("Attempting direct module patching as last resort...")
 
-            self.model = AutoModelForCausalLM.from_pretrained(model_name, **model_kwargs)
+                for module_name in list(sys.modules.keys()):
+                    if "phi4mm" in module_name and "modeling" in module_name:
+                        module_obj = sys.modules[module_name]
+                        if hasattr(module_obj, "Phi4MMModel"):
+                            phi4mm_class = getattr(module_obj, "Phi4MMModel")
+                            if not hasattr(phi4mm_class, "prepare_inputs_for_generation"):
+                                phi4mm_class.prepare_inputs_for_generation = prepare_inputs_for_generation
+                                logger.info(f"Emergency patched Phi4MMModel in module {module_name}")
+
+                                # Try loading again
+                                try:
+                                    self.model = AutoModelForCausalLM.from_pretrained(
+                                        model_name, **model_kwargs
+                                    )
+                                    break
+                                except Exception as e2:
+                                    logger.error(f"Even after emergency patching, failed with: {e2}")
+                                    continue
+                else:
+                    # Re-raise original exception if patching didn't help
+                    raise e
+            finally:
+                # Restore original import
+                builtins.__import__ = original_import
 
             # Post-load patch as backup
             if hasattr(self.model, "model") and not hasattr(
