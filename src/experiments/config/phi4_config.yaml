@@ -14,7 +14,22 @@ generation:
 
 # Input settings
 input:
-  text: null # Required - will be set via command line or override
+  # Simple text input (backward compatibility) - will be converted to user message
+  text: null # Optional - simple text that will be converted to a user message
+
+  # Chat completion messages format (preferred)
+  messages:
+    null # Optional - list of chat messages with role and content
+    # Example:
+    # - role: system
+    #   content: "You are a helpful AI assistant."
+    # - role: user
+    #   content: "Hello, how are you?"
+
+  # System message (optional) - will be prepended to messages
+  system_message: null # Optional - system message to add at the beginning
+
+  # Audio input
   audio_path: null # Optional - path to audio file
 
 # Audio recording settings

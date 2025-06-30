@@ -1,8 +1,35 @@
 #!/usr/bin/env python3
 """
-Phi-4 Multimodal Inference Script with Audio Support
-Supports text + audio prompts with optional audio recording
+Phi-4 Multimodal Inference Script with Audio Support and Chat Completion
+Supports chat completion messages + audio prompts with optional audio recording
 Optimized for Mac M4 with manual flash attention disabling
+
+Usage Examples:
+
+1. Simple text input (backward compatibility):
+   python phi_4_multimodal.py input.text="Hello, how are you?"
+
+2. Chat completion messages:
+   python phi_4_multimodal.py --config-name=chat_example
+
+3. Multi-turn conversation:
+   python phi_4_multimodal.py --config-name=conversation_example
+
+4. Command line override with messages:
+   python phi_4_multimodal.py input.messages='[{role: user, content: "Explain quantum computing"}]'
+
+5. With system message:
+   python phi_4_multimodal.py input.text="What is AI?" input.system_message="You are an expert in artificial intelligence."
+
+6. With audio recording:
+   python phi_4_multimodal.py recording.enabled=true recording.duration=5.0 input.text="Describe this audio"
+
+Chat Message Format:
+- Each message should have 'role' and 'content' fields
+- Supported roles: 'system', 'user', 'assistant'
+- System messages set behavior/context
+- User messages are queries/inputs
+- Assistant messages show previous responses in multi-turn conversations
 """
 
 import os
@@ -261,17 +288,12 @@ class Phi4MultimodalInference:
 
             # Move to device with better handling for multimodal models
             try:
-                if use_4bit and self.device == "mps" and not BITSANDBYTES_AVAILABLE:
-                    # For MPS without bitsandbytes, we need to be more careful
-                    logger.info("Moving model to MPS device...")
-                    self.model = self.model.to(self.device)
-                elif not use_4bit:
-                    # For non-quantized models, move normally
+                # Always try to move to the target device for non-quantized models or MPS
+                if self.device != "cpu":
                     logger.info(f"Moving model to {self.device} device...")
                     self.model = self.model.to(self.device)
                 else:
-                    # For other cases (CUDA with quantization), the model is already on the right device
-                    logger.info(f"Model will remain on current device (quantization enabled)")
+                    logger.info("Model remaining on CPU device")
 
                 # Verify model device
                 if hasattr(self.model, "device"):
@@ -324,18 +346,70 @@ class Phi4MultimodalInference:
 
     def inference(
         self,
-        text_prompt: str,
+        messages: list[dict[str, str]],
         audio_path: Optional[str] = None,
         max_new_tokens: int = 500,
         temperature: float = 0.7,
         do_sample: bool = True,
     ) -> str:
-        """Run inference with text and optional audio"""
+        """Run inference with chat completion messages and optional audio
+
+        Args:
+            messages: List of chat messages with 'role' and 'content' keys
+                     e.g., [{"role": "user", "content": "Hello, how are you?"}]
+            audio_path: Optional path to audio file
+            max_new_tokens: Maximum number of tokens to generate
+            temperature: Sampling temperature
+            do_sample: Whether to use sampling
+
+        Returns:
+            Generated response text
+        """
 
         if self.model is None or self.processor is None:
             raise ValueError("Model not loaded. Call load_model() first.")
 
         logger.info("Preparing inputs...")
+
+        # Format messages using the processor's chat template
+        try:
+            # Convert messages to text using chat template
+            if hasattr(self.processor, "tokenizer") and hasattr(
+                self.processor.tokenizer, "apply_chat_template"
+            ):
+                text_prompt = self.processor.tokenizer.apply_chat_template(
+                    messages, tokenize=False, add_generation_prompt=True
+                )
+            else:
+                # Fallback: manually format messages
+                formatted_messages = []
+                for message in messages:
+                    role = message.get("role", "user")
+                    content = message.get("content", "")
+                    if role == "system":
+                        formatted_messages.append(f"System: {content}")
+                    elif role == "user":
+                        formatted_messages.append(f"User: {content}")
+                    elif role == "assistant":
+                        formatted_messages.append(f"Assistant: {content}")
+                    else:
+                        formatted_messages.append(f"{role}: {content}")
+
+                text_prompt = "\n".join(formatted_messages)
+                if not text_prompt.endswith("Assistant:"):
+                    text_prompt += "\nAssistant:"
+
+            logger.info(f"Formatted prompt: {text_prompt[:200]}...")
+
+        except Exception as e:
+            logger.warning(f"Error formatting chat template, using fallback: {e}")
+            # Simple fallback formatting
+            text_prompt = ""
+            for message in messages:
+                role = message.get("role", "user")
+                content = message.get("content", "")
+                text_prompt += f"{role.capitalize()}: {content}\n"
+            text_prompt += "Assistant:"
 
         # Prepare inputs
         inputs = {"text": text_prompt}
@@ -398,6 +472,33 @@ class Phi4MultimodalInference:
             if text_prompt in response:
                 response = response.replace(text_prompt, "").strip()
 
+            # More aggressive cleaning for chat templates
+            # Remove common chat template artifacts
+            chat_prefixes = [
+                "Assistant:",
+                "<|assistant|>",
+                "System:",
+                "<|system|>",
+                "User:",
+                "<|user|>",
+                "<|end|>",
+            ]
+
+            for prefix in chat_prefixes:
+                if response.startswith(prefix):
+                    response = response[len(prefix) :].strip()
+
+            # Remove any remaining template tokens
+            import re
+
+            response = re.sub(r"<\|[^|]*\|>", "", response).strip()
+
+            # Clean up duplicate system/user content that might leak through
+            for message in messages:
+                content = message.get("content", "")
+                if content and content in response:
+                    response = response.replace(content, "").strip()
+
             return response
 
         except Exception as e:
@@ -413,9 +514,13 @@ def main(cfg: DictConfig) -> None:
     logging.getLogger().setLevel(getattr(logging, cfg.logging.level.upper()))
 
     # Validate required inputs
-    if cfg.input.text is None:
+    text_input = cfg.input.get("text")
+    messages_input = cfg.input.get("messages")
+
+    if text_input is None and messages_input is None:
         raise ValueError(
-            "Text input is required. Set input.text in config or override with input.text='your text'"
+            "Either text input or messages are required. "
+            "Set input.text='your text' or input.messages=[{role: 'user', content: 'your text'}]"
         )
 
     try:
@@ -441,10 +546,27 @@ def main(cfg: DictConfig) -> None:
                 duration=cfg.recording.duration, output_path=cfg.recording.output_path
             )
 
+            # Prepare messages for inference
+        messages = []
+        if messages_input:
+            # Use provided messages directly
+            messages = messages_input
+            logger.info(f"Using provided messages: {len(messages)} message(s)")
+        elif text_input:
+            # Convert text to messages format
+            messages = [{"role": "user", "content": text_input}]
+            logger.info(f"Converted text to user message: {text_input[:100]}...")
+
+        # Add system message if provided
+        system_message = cfg.input.get("system_message")
+        if system_message:
+            messages.insert(0, {"role": "system", "content": system_message})
+            logger.info("Added system message")
+
         # Run inference
         logger.info("Starting inference...")
         response = phi4.inference(
-            text_prompt=cfg.input.text,
+            messages=messages,
             audio_path=audio_path,
             max_new_tokens=cfg.generation.max_new_tokens,
             temperature=cfg.generation.temperature,
@@ -455,16 +577,32 @@ def main(cfg: DictConfig) -> None:
         print("\n" + "=" * 50)
         print("INFERENCE RESULTS")
         print("=" * 50)
-        print(f"Text Prompt: {cfg.input.text}")
+
+        # Display the conversation
+        print("Messages:")
+        for i, message in enumerate(messages):
+            role = message.get("role", "unknown")
+            content = message.get("content", "")
+            print(f"  {i+1}. {role.capitalize()}: {content}")
+
         if audio_path:
             print(f"Audio File: {audio_path}")
-        print(f"Model Response:\n{response}")
+
+        print(f"\nModel Response:\n{response}")
         print("=" * 50)
 
         # Save results to file
         if cfg.logging.save_results:
+            # Convert OmegaConf objects to regular Python objects for JSON serialization
+            messages_dict = []
+            for msg in messages:
+                if hasattr(msg, "keys"):  # OmegaConf DictConfig
+                    messages_dict.append(dict(msg))
+                else:
+                    messages_dict.append(msg)
+
             results = {
-                "text_prompt": cfg.input.text,
+                "messages": messages_dict,
                 "audio_path": audio_path,
                 "model_response": response,
                 "timestamp": time.time(),
