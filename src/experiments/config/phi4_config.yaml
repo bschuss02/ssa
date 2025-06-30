@@ -1,0 +1,48 @@
+# Phi-4 Multimodal Inference Configuration
+
+# Model settings
+model:
+  name: microsoft/Phi-4-multimodal-instruct
+  cache_dir: "/Users/Benjamin/dev/ssa/models"
+  use_4bit: true
+
+# Generation parameters
+generation:
+  max_new_tokens: 500
+  temperature: 0.7
+  do_sample: true
+
+# Input settings
+input:
+  text: null # Required - will be set via command line or override
+  audio_path: null # Optional - path to audio file
+
+# Audio recording settings
+recording:
+  enabled: false
+  duration: 10.0 # seconds
+  output_path: null # Optional - auto-generated if not specified
+  sample_rate: 16000
+  channels: 1
+
+# Device and optimization settings
+device:
+  use_mps: true # Use Metal Performance Shaders on Mac
+  disable_flash_attention: true # Required for Mac M4 compatibility
+  low_cpu_mem_usage: true
+
+# Logging and output
+logging:
+  level: "INFO"
+  save_results: true
+  results_file: null # Auto-generated if not specified
+
+# Hydra settings
+defaults:
+  - _self_
+
+hydra:
+  run:
+    dir: ./outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  job:
+    name: phi4_inference

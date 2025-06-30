@@ -1,0 +1,20 @@
+# @package _global_
+# Example configuration for audio recording mode
+defaults:
+  - phi4_config
+  - _self_
+
+# Override for recording mode
+recording:
+  enabled: true
+  duration: 15.0
+  output_path: "recorded_audio.wav"
+
+# Example text prompt
+input:
+  text: "Please describe what you hear in this audio recording"
+
+# Adjust generation for audio analysis
+generation:
+  max_new_tokens: 300
+  temperature: 0.5
