@@ -157,22 +157,22 @@ class ASRMetricsCalculator:
             logger.debug(f"Original hyp: '{hypothesis}'")
             logger.debug(f"Normalized hyp: '{norm_hypothesis}'")
 
-            # Calculate word-level metrics on normalized text
-            word_measures = jiwer.compute_measures(norm_reference, norm_hypothesis)
+            # Calculate word-level metrics on normalized text using process_words
+            word_output = jiwer.process_words(norm_reference, norm_hypothesis)
 
             # Calculate character-level metrics on normalized text
             cer = jiwer.cer(norm_reference, norm_hypothesis)
 
             return {
-                "wer": word_measures["wer"],
-                "mer": word_measures["mer"],
-                "wil": word_measures["wil"],
-                "wip": word_measures["wip"],
+                "wer": word_output.wer,
+                "mer": word_output.mer,
+                "wil": word_output.wil,
+                "wip": word_output.wip,
                 "cer": cer,
-                "substitutions": word_measures["substitutions"],
-                "deletions": word_measures["deletions"],
-                "insertions": word_measures["insertions"],
-                "hits": word_measures["hits"],
+                "substitutions": word_output.substitutions,
+                "deletions": word_output.deletions,
+                "insertions": word_output.insertions,
+                "hits": word_output.hits,
             }
 
         except Exception as e:
