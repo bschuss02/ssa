@@ -21,6 +21,7 @@ import librosa
 import soundfile as sf
 from tqdm import tqdm
 import subprocess
+import argparse
 
 
 @dataclass
@@ -29,7 +30,8 @@ class AudioSegment:
     end_time: float
     annotated_text: str
     unannotated_text: str
-    speaker_id: str
+    speaker_id: str  # Actual speaker name/ID (e.g., from filename)
+    speaker_role: str  # Original speaker code (e.g., "INV", "PAR")
     clip_id: str
     clip_audio_file: str
 
@@ -155,6 +157,8 @@ class FluencyBankCHATParser:
         text = re.sub(r"\d+_\d+", "", text)
         # Remove extra whitespace
         text = re.sub(r"\s+", " ", text).strip()
+        # Remove Unicode control characters and other unwanted characters
+        text = re.sub(r"[\u0000-\u001F\u007F-\u009F]", "", text)
         return text
 
     def _remove_annotations(self, text: str) -> str:
@@ -167,11 +171,17 @@ class FluencyBankCHATParser:
         text = re.sub(r"\s+\.\s+", " ", text)
         # Remove extra whitespace
         text = re.sub(r"\s+", " ", text).strip()
+        # Remove Unicode control characters and other unwanted characters
+        text = re.sub(r"[\u0000-\u001F\u007F-\u009F]", "", text)
         return text
 
     def get_audio_segments(self, base_clip_id: str) -> List[AudioSegment]:
         """Convert utterances to AudioSegment objects"""
         segments = []
+
+        # Extract speaker name from filename (e.g., "participant_001" from "participant_001_session")
+        # This assumes the filename contains the speaker/participant identifier
+        speaker_name = self._extract_speaker_name_from_clip_id(base_clip_id)
 
         for i, utterance in enumerate(self.utterances):
             timestamps = utterance["timestamps"]
@@ -194,12 +204,16 @@ class FluencyBankCHATParser:
                 annotated_text = utterance["text"]
                 unannotated_text = self._remove_annotations(annotated_text)
 
+                # Get speaker code as the speaker role
+                speaker_role = utterance["speaker"]
+
                 segment = AudioSegment(
                     start_time=start_time,
                     end_time=end_time,
                     annotated_text=annotated_text,
                     unannotated_text=unannotated_text,
-                    speaker_id=utterance["speaker"],
+                    speaker_id=speaker_name,
+                    speaker_role=speaker_role,
                     clip_id=segment_id,
                     clip_audio_file=clip_audio_file,
                 )
@@ -208,11 +222,41 @@ class FluencyBankCHATParser:
 
         return segments
 
+    def _extract_speaker_name_from_clip_id(self, clip_id: str) -> str:
+        """Extract speaker name/identifier from the clip ID (filename)"""
+        # This method extracts the participant/speaker identifier from the filename
+        # You may need to adjust this logic based on your filename format
+        # Common patterns might be:
+        # - "participant_001_session" -> "participant_001"
+        # - "john_doe_interview" -> "john_doe"
+        # - "P001_recording" -> "P001"
+
+        # Remove common suffixes and extract the main identifier
+        clip_id_lower = clip_id.lower()
+
+        # Remove common suffixes
+        suffixes_to_remove = ["_session", "_recording", "_interview", "_audio", "_video", "_chat"]
+        for suffix in suffixes_to_remove:
+            if clip_id_lower.endswith(suffix):
+                clip_id = clip_id[: len(clip_id) - len(suffix)]
+                break
+
+        # If the filename has multiple parts separated by underscores,
+        # assume the speaker name is the first part(s) before session info
+        parts = clip_id.split("_")
+        if len(parts) >= 2:
+            # Try to identify if the last part looks like a session number
+            if parts[-1].isdigit() or parts[-1].startswith("session"):
+                return "_".join(parts[:-1])
+
+        # If no clear pattern, return the entire clip_id as the speaker name
+        return clip_id
+
 
 class FluencyBankExtractor:
     """Main class for extracting Fluency Bank dataset"""
 
-    def __init__(self, video_dir: str, cha_dir: str, output_dir: str):
+    def __init__(self, video_dir: str, cha_dir: str, output_dir: str, skip_existing: bool = False):
         self.video_dir = Path(video_dir)
         self.cha_dir = Path(cha_dir)
         self.output_dir = Path(output_dir)
@@ -222,6 +266,7 @@ class FluencyBankExtractor:
         self.wav_output_dir.mkdir(parents=True, exist_ok=True)
 
         self.parser = FluencyBankCHATParser()
+        self.skip_existing = skip_existing
 
     def find_file_pairs(self) -> List[Tuple[Path, Path]]:
         """Find matching .cha and video file pairs"""
@@ -312,16 +357,39 @@ class FluencyBankExtractor:
         print(f"Found {len(segments)} audio segments")
 
         # Extract audio clips
-        for segment in tqdm(segments, desc="Extracting audio", leave=False):
+        segments_to_remove = []
+        skipped_count = 0
+        extracted_count = 0
+
+        for segment in tqdm(segments, desc="Processing audio", leave=False):
             output_path = self.wav_output_dir / segment.clip_audio_file
+
+            if self.skip_existing and output_path.exists():
+                # Skip extraction but keep the segment in the list
+                skipped_count += 1
+                continue
 
             success = self.extract_audio_segment(
                 video_file, segment.start_time, segment.end_time, output_path
             )
 
-            if not success:
-                # Remove failed segment
-                segments.remove(segment)
+            if success:
+                extracted_count += 1
+            else:
+                # Mark failed segment for removal
+                segments_to_remove.append(segment)
+
+        # Remove failed segments
+        for segment in segments_to_remove:
+            segments.remove(segment)
+
+        # Print summary for this file pair
+        if self.skip_existing and skipped_count > 0:
+            print(
+                f"  Skipped {skipped_count} existing files, extracted {extracted_count} new files, {len(segments_to_remove)} failed"
+            )
+        else:
+            print(f"  Extracted {extracted_count} files, {len(segments_to_remove)} failed")
 
         return segments
 
@@ -359,6 +427,7 @@ class FluencyBankExtractor:
                     "annotated_text": segment.annotated_text,
                     "unannotated_text": segment.unannotated_text,
                     "speaker_id": segment.speaker_id,
+                    "speaker_role": segment.speaker_role,
                     "clip_id": segment.clip_id,
                     "clip_audio_file": str(self.wav_output_dir / segment.clip_audio_file),
                 }
@@ -385,11 +454,32 @@ class FluencyBankExtractor:
 
 def main():
     """Main function"""
+    # Set up command line arguments
+    parser = argparse.ArgumentParser(description="Extract Fluency Bank dataset from video and .cha files")
+    parser.add_argument(
+        "--skip-existing", action="store_true", help="Skip extracting audio segments that already exist"
+    )
+    parser.add_argument(
+        "--video-dir", type=str, help="Directory containing video files (default: data/fluencybank/raw/video)"
+    )
+    parser.add_argument(
+        "--cha-dir",
+        type=str,
+        help="Directory containing .cha transcript files (default: data/fluencybank/raw/chat)",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        help="Output directory for processed files (default: data/fluencybank/processed)",
+    )
+
+    args = parser.parse_args()
+
     # Set up paths
     base_dir = Path("/Users/Benjamin/dev/ssa")
-    video_dir = base_dir / "data/fluencybank/raw/video"
-    cha_dir = base_dir / "data/fluencybank/raw/chat"
-    output_dir = base_dir / "data/fluencybank/processed"
+    video_dir = Path(args.video_dir) if args.video_dir else base_dir / "data/fluencybank/raw/video"
+    cha_dir = Path(args.cha_dir) if args.cha_dir else base_dir / "data/fluencybank/raw/chat"
+    output_dir = Path(args.output_dir) if args.output_dir else base_dir / "data/fluencybank/processed"
 
     # Check if input directories exist
     if not video_dir.exists():
@@ -402,8 +492,14 @@ def main():
 
     # Create extractor and run
     extractor = FluencyBankExtractor(
-        video_dir=str(video_dir), cha_dir=str(cha_dir), output_dir=str(output_dir)
+        video_dir=str(video_dir),
+        cha_dir=str(cha_dir),
+        output_dir=str(output_dir),
+        skip_existing=args.skip_existing,
     )
+
+    if args.skip_existing:
+        print("Note: Skipping extraction for existing audio files")
 
     parquet_file = extractor.extract_all()
 

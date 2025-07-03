@@ -1,4 +1,5 @@
 import os
+import re
 from typing import Optional, Dict, Any, List
 import polars as pl
 import soundfile as sf
@@ -26,17 +27,19 @@ class FluencyBankDataset:
         include_timing: bool = True,
         include_speaker_info: bool = True,
         text_column: str = "unannotated_text",  # Use unannotated by default
+        clean_text: bool = True,  # Whether to clean special characters from text
     ):
         """
         Initialize the FluencyBank dataset.
 
         Args:
-            parquet_path: Path to the parquet file containing the data
-            audio_sample_rate: Target sample rate for audio (default: 16kHz)
-            max_audio_length: Maximum audio length in seconds (None for no limit)
-            include_timing: Whether to include start/end time information
-            include_speaker_info: Whether to include speaker ID information
-            text_column: Which text column to use ('annotated_text' or 'unannotated_text')
+                parquet_path: Path to the parquet file containing the data
+                audio_sample_rate: Target sample rate for audio (default: 16kHz)
+                max_audio_length: Maximum audio length in seconds (None for no limit)
+                include_timing: Whether to include start/end time information
+                include_speaker_info: Whether to include speaker ID information
+                text_column: Which text column to use ('annotated_text' or 'unannotated_text')
+                clean_text: Whether to clean special characters from text (default: True)
         """
         self.parquet_path = Path(parquet_path)
         self.audio_sample_rate = audio_sample_rate
@@ -44,6 +47,7 @@ class FluencyBankDataset:
         self.include_timing = include_timing
         self.include_speaker_info = include_speaker_info
         self.text_column = text_column
+        self.clean_text = clean_text
 
         if not self.parquet_path.exists():
             raise FileNotFoundError(f"Parquet file not found: {parquet_path}")
@@ -91,10 +95,10 @@ class FluencyBankDataset:
         Load and preprocess an audio file.
 
         Args:
-            audio_path: Path to the audio file
+                audio_path: Path to the audio file
 
         Returns:
-            Dictionary with 'array' and 'sampling_rate' keys
+                Dictionary with 'array' and 'sampling_rate' keys
         """
         try:
             audio_data, original_sr = sf.read(audio_path)
@@ -177,7 +181,7 @@ class FluencyBankDataset:
         Convert the data to a HuggingFace Dataset.
 
         Returns:
-            HuggingFace Dataset object
+                HuggingFace Dataset object
         """
         logger.info("Converting to HuggingFace Dataset...")
 
@@ -233,11 +237,11 @@ def create_fluencybank_dataset(
     Convenience function to create a FluencyBank HuggingFace dataset.
 
     Args:
-        parquet_path: Path to the parquet file
-        **kwargs: Additional arguments for FluencyBankDataset
+            parquet_path: Path to the parquet file
+            **kwargs: Additional arguments for FluencyBankDataset
 
     Returns:
-        HuggingFace Dataset object
+            HuggingFace Dataset object
     """
     fb_dataset = FluencyBankDataset(parquet_path, **kwargs)
 
