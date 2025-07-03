@@ -1,0 +1,64 @@
+defaults:
+  - _self_
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+hydra:
+  output_subdir: null
+  run:
+    dir: .
+
+# Model Configuration
+model:
+  name: "microsoft/Phi-4-multimodal-instruct"
+  cache_dir: /Users/Benjamin/dev/ssa/models/Phi-4-multimodal-instruct
+  force_cpu: false
+  device: mps # auto-detect (mps, cuda, cpu)
+  use_4bit: false
+
+  # Inference parameters
+  max_new_tokens: 500
+  temperature: 0.7
+  do_sample: true
+
+  # Prompt configuration
+  system_message:
+    "You are an expert audio transcriptionist. Transcribe the provided audio
+    accurately and clearly. Focus on the exact words spoken without adding
+    commentary or interpretation."
+  user_prompt:
+    "Transcribe the speech that is contained in this audio recording. Provide
+    only the transcribed text without any additional commentary."
+
+# Dataset Configuration
+dataset:
+  parquet_path: "/Users/Benjamin/dev/ssa/data/fluencybank/processed/fluencybank_segments.parquet"
+  audio_sample_rate: 16000
+  max_audio_length: 0 # Maximum audio length in seconds (null for no limit)
+  text_column: "unannotated_text" # Which text column to use as ground truth
+  include_timing: true
+  include_speaker_info: true
+
+# Evaluation Configuration
+evaluation:
+  max_samples: 5 # Maximum number of samples to evaluate (0 for all)
+  log_interval: 10 # Log progress every N samples
+
+  # Metrics to compute
+  compute_wer: true
+  compute_cer: true
+  compute_mer: true
+  compute_wil: true
+  compute_wip: true
+
+# Output Configuration
+output:
+  dir: /Users/Benjamin/dev/ssa/results
+  save_json: true
+  save_csv: true
+  save_summary: true
+  save_examples: true
+
+# Logging Configuration
+logging:
+  level: "INFO" # DEBUG, INFO, WARNING, ERROR

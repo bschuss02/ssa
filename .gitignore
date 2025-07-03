@@ -9,6 +9,6 @@ wheels/
 # Virtual environments
 .venv
 outputs
-./models
+models
 data
 .env

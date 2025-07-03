@@ -7,9 +7,16 @@ using Microsoft's Phi-4 multimodal instruct model for audio transcription
 and multimodal inference.
 """
 
+import os
 import logging
 from typing import Optional, Dict, Any, List
 from pathlib import Path
+
+# Disable flash attention manually for Mac M4 compatibility
+os.environ["FLASH_ATTENTION_DISABLE"] = "1"
+os.environ["ATTN_IMPLEMENTATION"] = "eager"
+os.environ["TRANSFORMERS_USE_FLASH_ATTENTION_2"] = "false"
+os.environ["DISABLE_FLASH_ATTN"] = "1"
 
 from .base_multimodal_asr_model import BaseMultimodalASRModel
 
@@ -147,11 +154,6 @@ class Phi4MultimodalASRModel(BaseMultimodalASRModel):
         except Exception as e:
             logger.error(f"Failed to transcribe audio {audio_path}: {e}")
             raise
-
-    @property
-    def is_loaded(self) -> bool:
-        """Check if the model is loaded and ready for inference."""
-        return self._model_loaded and self._phi4_inference is not None
 
     def get_model_info(self) -> Dict[str, Any]:
         """
