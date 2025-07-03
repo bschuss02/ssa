@@ -11,3 +11,4 @@ wheels/
 outputs
 models
 data
+.env

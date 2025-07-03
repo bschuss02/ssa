@@ -29,15 +29,7 @@ input:
   system_message: null
 
   # Audio input (optional)
-  audio_path: /Users/Benjamin/dev/ssa/data/benji_audio/fluent_1.m4a
-
-# Audio recording settings
-recording:
-  enabled: false
-  duration: 10.0
-  output_path: null
-  sample_rate: 16000
-  channels: 1
+  audio_path: /Users/Benjamin/dev/ssa/data/benji_audio/fluent_2.m4a
 
 # Device and optimization settings
 device:

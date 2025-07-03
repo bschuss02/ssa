@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Phi-4 Multimodal Inference Script with Audio Support and Chat Completion
-Supports chat completion messages + audio prompts with optional audio recording
+Supports chat completion messages + audio file processing
 Optimized for Mac M4 with manual flash attention disabling
 
 Usage Examples:
@@ -20,9 +20,6 @@ Usage Examples:
 
 5. With system message:
    python phi_4_multimodal.py input.text="What is AI?" input.system_message="You are an expert in artificial intelligence."
-
-6. With audio recording:
-   python phi_4_multimodal.py recording.enabled=true recording.duration=5.0 input.text="Describe this audio"
 
 Chat Message Format:
 - Each message should have 'role' and 'content' fields
@@ -57,15 +54,13 @@ os.environ["DISABLE_FLASH_ATTN"] = "1"
 try:
     import torch
     import torchaudio
-    import sounddevice as sd
     import librosa
     from transformers import AutoModelForCausalLM, AutoProcessor, GenerationConfig
     from PIL import Image
-    import scipy.io.wavfile as wavfile
 except ImportError as e:
     logger.error(f"Missing required dependency: {e}")
     logger.error(
-        "Please run: uv add torch torchvision torchaudio transformers sounddevice librosa pillow scipy accelerate numpy"
+        "Please run: uv add torch torchvision torchaudio transformers librosa pillow accelerate numpy"
     )
     exit(1)
 
@@ -78,47 +73,6 @@ except ImportError:
     logger.warning("bitsandbytes not available - quantization will be disabled (normal for Mac M4)")
     BITSANDBYTES_AVAILABLE = False
     BitsAndBytesConfig = None
-
-
-class AudioRecorder:
-    """Handle audio recording functionality"""
-
-    def __init__(self, sample_rate: int = 16000, channels: int = 1):
-        self.sample_rate = sample_rate
-        self.channels = channels
-
-    def record_audio(self, duration: float, output_path: Optional[str] = None) -> str:
-        """Record audio for specified duration and save to file"""
-        logger.info(f"Recording audio for {duration} seconds...")
-        logger.info("Recording will start in 3 seconds...")
-        time.sleep(3)
-
-        # Record audio
-        audio_data = sd.rec(
-            int(duration * self.sample_rate),
-            samplerate=self.sample_rate,
-            channels=self.channels,
-            dtype=np.float32,
-        )
-
-        logger.info("Recording started!")
-        sd.wait()  # Wait until recording is finished
-        logger.info("Recording finished!")
-
-        # Save to file
-        if output_path is None:
-            timestamp = int(time.time())
-            output_path = f"recorded_audio_{timestamp}.wav"
-
-        # Ensure the directory exists
-        os.makedirs(os.path.dirname(output_path) if os.path.dirname(output_path) else ".", exist_ok=True)
-
-        # Convert to 16-bit integer and save
-        audio_int16 = (audio_data * 32767).astype(np.int16)
-        wavfile.write(output_path, self.sample_rate, audio_int16)
-
-        logger.info(f"Audio saved to: {output_path}")
-        return output_path
 
 
 class Phi4MultimodalInference:
@@ -569,14 +523,8 @@ def main(cfg: DictConfig) -> None:
 
         # Handle audio
         audio_path = cfg.input.audio_path
-        if cfg.recording.enabled:
-            logger.info("Audio recording mode enabled")
-            recorder = AudioRecorder(sample_rate=cfg.recording.sample_rate, channels=cfg.recording.channels)
-            audio_path = recorder.record_audio(
-                duration=cfg.recording.duration, output_path=cfg.recording.output_path
-            )
 
-            # Prepare messages for inference
+        # Prepare messages for inference
         messages = []
         if messages_input:
             # Use provided messages directly
