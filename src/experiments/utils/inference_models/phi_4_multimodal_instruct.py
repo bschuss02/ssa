@@ -74,6 +74,7 @@ class Phi4MultimodalASRModel(BaseMultimodalASRModel):
         Build a prompt string from a list of message dicts.
         Args:
             messages (List[Dict[str, str]]): List of messages with 'role' and 'content'.
+                Users can include '<|audio_1|>' directly in message content for audio placement.
         Returns:
             str: The constructed prompt string.
         """
@@ -81,23 +82,23 @@ class Phi4MultimodalASRModel(BaseMultimodalASRModel):
         assistant_prompt = "<|assistant|>"
         prompt_suffix = "<|end|>"
         prompt = ""
-        audio_token_inserted = False
-        for i, msg in enumerate(messages):
+
+        for msg in messages:
             role = msg.get("role", "user")
             content = msg.get("content", "")
+
             if role == "system":
+                # System messages are prepended to the prompt
                 prompt = content + "\n" + prompt
             elif role == "user":
-                prompt += user_prompt
-                if not audio_token_inserted:
-                    if "<|audio_1|>" not in content:
-                        content = f"<|audio_1|>{content}"
-                    audio_token_inserted = True
-                prompt += content + prompt_suffix
+                prompt += user_prompt + content + prompt_suffix
             elif role == "assistant":
                 prompt += assistant_prompt + content + prompt_suffix
+
+        # Ensure the prompt ends with an assistant token for generation
         if not prompt.strip().endswith(assistant_prompt):
             prompt += assistant_prompt
+
         return prompt
 
     def _load_audio(self, audio_path: str) -> Tuple:

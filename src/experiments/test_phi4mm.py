@@ -14,11 +14,7 @@ def main():
         {"role": "system", "content": "You are an expert audio transcriptionist."},
         {
             "role": "user",
-            "content": "translate the words from the audio file into Spanish.",
-        },
-        {
-            "role": "user",
-            "content": "<|audio_1|>",
+            "content": "translate the words from the audio recording into Spanish. <|audio_1|>",
         },
     ]
 
