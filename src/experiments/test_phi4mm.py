@@ -16,6 +16,10 @@ def main():
             "role": "user",
             "content": "translate the words from the audio file into Spanish.",
         },
+        {
+            "role": "user",
+            "content": "<|audio_1|>",
+        },
     ]
 
     print("Starting transcription...")

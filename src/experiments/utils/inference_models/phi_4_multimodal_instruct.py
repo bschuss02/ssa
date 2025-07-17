@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import soundfile as sf
 from transformers import AutoModelForCausalLM, AutoProcessor
@@ -13,15 +13,21 @@ class Phi4MultimodalASRModel(BaseMultimodalASRModel):
         model_path: str,
         device: Optional[str] = None,
     ):
+        """
+        Initialize the Phi4MultimodalASRModel.
+        Args:
+            model_path (str): Path to the pretrained model.
+            device (Optional[str]): Device to load the model on.
+        """
         super().__init__(model_path=model_path, device=device)
         self.model = None
         self.processor = None
         self.device = device
 
-    def load_model(
-        self,
-        **kwargs,
-    ) -> None:
+    def load_model(self, **kwargs) -> None:
+        """
+        Load the processor and model from the specified model path.
+        """
         self.processor = AutoProcessor.from_pretrained(
             self.model_path, trust_remote_code=True
         )
@@ -40,6 +46,14 @@ class Phi4MultimodalASRModel(BaseMultimodalASRModel):
         messages: Optional[List[Dict[str, str]]] = None,
         **kwargs,
     ) -> str:
+        """
+        Transcribe the given audio file using the model and a prompt built from messages.
+        Args:
+            audio_path (str): Path to the audio file.
+            messages (Optional[List[Dict[str, str]]]): List of message dicts to build the prompt.
+        Returns:
+            str: The transcription result.
+        """
         if messages is None:
             messages = [
                 {
@@ -47,9 +61,22 @@ class Phi4MultimodalASRModel(BaseMultimodalASRModel):
                     "content": "You are an expert audio transcriptionist.",
                 },
             ]
-        audio_data, sample_rate = sf.read(audio_path)
+        audio_data, sample_rate = self._load_audio(audio_path)
+        prompt = self._build_prompt_from_messages(messages)
+        print(f"Prompt: {prompt}")
+        inputs = self._prepare_inputs(prompt, audio_data, sample_rate)
+        response = self._generate_transcription(inputs)
+        print(response)
+        return response
 
-        # Build prompt from messages
+    def _build_prompt_from_messages(self, messages: List[Dict[str, str]]) -> str:
+        """
+        Build a prompt string from a list of message dicts.
+        Args:
+            messages (List[Dict[str, str]]): List of messages with 'role' and 'content'.
+        Returns:
+            str: The constructed prompt string.
+        """
         user_prompt = "<|user|>"
         assistant_prompt = "<|assistant|>"
         prompt_suffix = "<|end|>"
@@ -59,11 +86,9 @@ class Phi4MultimodalASRModel(BaseMultimodalASRModel):
             role = msg.get("role", "user")
             content = msg.get("content", "")
             if role == "system":
-                # System prompt can be prepended or ignored depending on model, here we prepend
                 prompt = content + "\n" + prompt
             elif role == "user":
                 prompt += user_prompt
-                # Insert <|audio_1|> after the first user message if not present
                 if not audio_token_inserted:
                     if "<|audio_1|>" not in content:
                         content = f"<|audio_1|>{content}"
@@ -71,20 +96,48 @@ class Phi4MultimodalASRModel(BaseMultimodalASRModel):
                 prompt += content + prompt_suffix
             elif role == "assistant":
                 prompt += assistant_prompt + content + prompt_suffix
-        # If no assistant prompt at the end, add it
         if not prompt.strip().endswith(assistant_prompt):
             prompt += assistant_prompt
+        return prompt
 
-        # Prepare input
+    def _load_audio(self, audio_path: str) -> Tuple:
+        """
+        Load audio data and sample rate from a file.
+        Args:
+            audio_path (str): Path to the audio file.
+        Returns:
+            Tuple: (audio_data, sample_rate)
+        """
+        return sf.read(audio_path)
+
+    def _prepare_inputs(self, prompt: str, audio_data, sample_rate) -> Dict:
+        """
+        Prepare model inputs from prompt and audio data.
+        Args:
+            prompt (str): The prompt string.
+            audio_data: The audio data array.
+            sample_rate: The sample rate of the audio.
+        Returns:
+            Dict: Model-ready input tensors.
+        """
         if self.processor is None:
             raise Exception("Processor not loaded")
-        inputs = self.processor(
+        return self.processor(
             text=prompt, audios=[(audio_data, sample_rate)], return_tensors="pt"
         ).to("mps")
 
-        # Run generation
+    def _generate_transcription(self, inputs: Dict) -> str:
+        """
+        Generate transcription from model inputs.
+        Args:
+            inputs (Dict): Model-ready input tensors.
+        Returns:
+            str: The transcription result.
+        """
         if self.model is None:
             raise Exception("Model not loaded")
+        if self.processor is None:
+            raise Exception("Processor not loaded")
         generation_config = GenerationConfig.from_pretrained(self.model_path)
         generate_ids = self.model.generate(
             **inputs,
@@ -97,5 +150,4 @@ class Phi4MultimodalASRModel(BaseMultimodalASRModel):
         response = self.processor.batch_decode(
             output_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
         )[0]
-        print(response)
         return response
