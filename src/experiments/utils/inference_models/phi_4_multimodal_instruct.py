@@ -1,6 +1,5 @@
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
-import numpy as np
 import soundfile as sf
 from transformers import AutoModelForCausalLM, AutoProcessor
 from transformers.generation.configuration_utils import GenerationConfig
@@ -74,6 +73,7 @@ class Phi4MultimodalASRModel(BaseMultimodalASRModel):
             **inputs,
             max_new_tokens=1200,
             generation_config=generation_config,
+            num_logits_to_keep=1,  # Fix for NoneType error
         )
         # Remove prompt tokens from output
         output_ids = generate_ids[:, inputs["input_ids"].shape[1] :]

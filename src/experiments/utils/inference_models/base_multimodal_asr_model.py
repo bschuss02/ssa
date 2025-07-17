@@ -8,7 +8,7 @@ audio with optional chat completion messages for context.
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 
 class BaseMultimodalASRModel(ABC):

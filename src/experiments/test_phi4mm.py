@@ -17,7 +17,7 @@ def main():
 
     print("Starting transcription...")
     transcription = model.transcribe(
-        audio_path="/Users/Benjamin/dev/ssa/data/fluencybank/processed/wav_clips/20f_000_000.wav",
+        audio_path="/Users/Benjamin/dev/ssa/data/fluencybank/processed/wav_clips/20f_002_000.wav",
         messages=messages,
     )
 
