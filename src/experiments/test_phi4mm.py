@@ -5,7 +5,8 @@ from experiments.utils.inference_models.phi_4_multimodal_instruct import (
 
 def main():
     model = Phi4MultimodalASRModel(
-        model_path="/Users/Benjamin/dev/ssa/models/Phi-4-multimodal-instruct"
+        model_name="Phi-4-multimodal-instruct",
+        model_path="/Users/Benjamin/dev/ssa/models/Phi-4-multimodal-instruct",
     )
 
     model.load_model()

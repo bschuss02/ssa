@@ -10,6 +10,8 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Dict, List, Optional
 
+import numpy as np
+
 
 class BaseMultimodalASRModel(ABC):
     """
@@ -42,21 +44,10 @@ class BaseMultimodalASRModel(ABC):
     def transcribe(
         self,
         *,
-        audio_path: str,
+        audio_path: Optional[str] = None,
+        audio_array: Optional[np.ndarray] = None,
+        sample_rate: Optional[int] = None,
         messages: Optional[List[Dict[str, str]]] = None,
         **kwargs,
     ) -> str:
-        """
-        Transcribe audio with optional chat context.
-
-        Args:
-            audio_path: Path to the audio file to transcribe
-            messages: Optional list of chat messages with 'role' and 'content' keys
-                     e.g., [{"role": "system", "content": "You are a medical transcriptionist"},
-                           {"role": "user", "content": "Please transcribe this audio"}]
-            **kwargs: Additional transcription parameters
-
-        Returns:
-            Transcribed text
-        """
         pass

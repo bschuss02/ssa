@@ -1,5 +1,6 @@
 from typing import Dict, List, Optional, Tuple
 
+import numpy as np
 import soundfile as sf
 from transformers import AutoModelForCausalLM, AutoProcessor
 from transformers.generation.configuration_utils import GenerationConfig
@@ -43,7 +44,9 @@ class Phi4MultimodalASRModel(BaseMultimodalASRModel):
     def transcribe(
         self,
         *,
-        audio_path: str,
+        audio_path: Optional[str] = None,
+        audio_array: Optional[np.ndarray] = None,
+        sample_rate: Optional[int] = None,
         messages: Optional[List[Dict[str, str]]] = None,
         **kwargs,
     ) -> str:
@@ -61,8 +64,20 @@ class Phi4MultimodalASRModel(BaseMultimodalASRModel):
                     "role": "system",
                     "content": "You are an expert audio transcriptionist.",
                 },
+                {
+                    "role": "user",
+                    "content": "Transcribe the speech from this audio recording exactly as they are spoken. <|audio_1|>",
+                },
             ]
-        audio_data, sample_rate = self._load_audio(audio_path)
+        if audio_path is not None:
+            audio_data, sample_rate = self._load_audio(audio_path)
+        elif audio_array is not None:
+            audio_data = audio_array
+            sample_rate = sample_rate
+        else:
+            raise ValueError(
+                "Either audio_path or audio_array and sample_rate must be provided"
+            )
         prompt = self._build_prompt_from_messages(messages)
         print(f"Prompt: {prompt}")
         inputs = self._prepare_inputs(prompt, audio_data, sample_rate)
