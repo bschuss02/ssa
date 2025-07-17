@@ -18,8 +18,8 @@ class BaseMultimodalASRModel(ABC):
 
     def __init__(
         self,
+        *,
         model_cache_dir: str = "./models",
-        force_cpu: bool = False,
         device: Optional[str] = None,
     ):
         """
@@ -32,7 +32,6 @@ class BaseMultimodalASRModel(ABC):
         """
         self.model_cache_dir = Path(model_cache_dir)
         self.model_cache_dir.mkdir(parents=True, exist_ok=True)
-        self.force_cpu = force_cpu
         self.device = device
 
     @abstractmethod

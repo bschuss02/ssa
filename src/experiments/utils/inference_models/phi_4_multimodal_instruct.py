@@ -9,8 +9,12 @@ and multimodal inference.
 
 import logging
 import os
+import types
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+import torch
+from transformers import AutoConfig, AutoModelForCausalLM, AutoProcessor
 
 # Disable flash attention manually for Mac M4 compatibility
 os.environ["FLASH_ATTENTION_DISABLE"] = "1"
@@ -20,80 +24,50 @@ os.environ["DISABLE_FLASH_ATTN"] = "1"
 
 from .base_multimodal_asr_model import BaseMultimodalASRModel
 
-# Set up logging
 logger = logging.getLogger(__name__)
 
 
 class Phi4MultimodalASRModel(BaseMultimodalASRModel):
-    """
-    Phi-4 Multimodal ASR Model implementation.
-
-    This class implements the BaseMultimodalASRModel interface using
-    Microsoft's Phi-4 multimodal instruct model for audio transcription
-    and multimodal understanding.
-    """
-
     def __init__(
         self,
-        model_cache_dir: str = "./models",
-        force_cpu: bool = False,
+        model_cache_dir: str = "/Users/Benjamin/dev/ssa/models",
         device: Optional[str] = None,
     ):
-        """
-        Initialize the Phi-4 multimodal ASR model.
-
-        Args:
-            model_cache_dir: Directory to cache downloaded models
-            force_cpu: Force CPU usage even if GPU is available
-            device: Specific device to use (overrides auto-detection)
-        """
-        super().__init__(model_cache_dir, force_cpu, device)
-        self._phi4_inference = None
-        self._model_loaded = False
+        super().__init__(model_cache_dir=model_cache_dir, device=device)
 
     def load_model(
         self, model_name: str = "microsoft/Phi-4-multimodal-instruct", **kwargs
     ) -> None:
-        """
-        Load the Phi-4 multimodal model and processor.
+        self.processor = AutoProcessor.from_pretrained(
+            model_name, cache_dir=str(self.model_cache_dir), trust_remote_code=True
+        )
+        config = AutoConfig.from_pretrained(
+            model_name, cache_dir=str(self.model_cache_dir), trust_remote_code=True
+        )
 
-        Args:
-            model_name: Name or path of the Phi-4 model to load
-            **kwargs: Additional model-specific arguments:
-                - use_4bit: Whether to use 4-bit quantization (default: True)
-        """
-        try:
-            # Import the Phi4MultimodalInference class
-            # We need to import it here to avoid circular imports and handle the sys.path correctly
-            import sys
-            from pathlib import Path
+        # Force disable flash attention
+        if hasattr(config, "use_flash_attention_2"):
+            config.use_flash_attention_2 = False
+        if hasattr(config, "_flash_attn_2_enabled"):
+            config._flash_attn_2_enabled = False
+        if hasattr(config, "attn_implementation"):
+            config.attn_implementation = "eager"
+        model_kwargs = {
+            "config": config,
+            "cache_dir": str(self.model_cache_dir),
+            "trust_remote_code": True,
+            "torch_dtype": torch.float16 if self.device != "cpu" else torch.float32,
+            "attn_implementation": "eager",  # Explicitly disable flash attention
+            "low_cpu_mem_usage": True,
+        }
+        self.model = AutoModelForCausalLM.from_pretrained(model_name, **model_kwargs)
 
-            # Add the parent directory to sys.path to import the inference module
-            inference_dir = Path(__file__).parent.parent
-            if str(inference_dir) not in sys.path:
-                sys.path.insert(0, str(inference_dir))
+        def prepare_inputs_for_generation(self, input_ids, **kwargs):
+            return {"input_ids": input_ids, **kwargs}
 
-            from inference_phi_4_multimodal import Phi4MultimodalInference
-
-            logger.info(
-                f"Initializing Phi-4 multimodal inference with model: {model_name}"
-            )
-
-            # Initialize the Phi4MultimodalInference with our parameters
-            self._phi4_inference = Phi4MultimodalInference(
-                model_cache_dir=str(self.model_cache_dir), force_cpu=self.force_cpu
-            )
-
-            # Load the model
-            use_4bit = kwargs.get("use_4bit", True)
-            self._phi4_inference.load_model(model_name=model_name, use_4bit=use_4bit)
-
-            self._model_loaded = True
-            logger.info("Phi-4 multimodal model loaded successfully")
-
-        except Exception as e:
-            logger.error(f"Failed to load Phi-4 multimodal model: {e}")
-            raise
+        self.model.model.prepare_inputs_for_generation = types.MethodType(
+            prepare_inputs_for_generation, self.model.model
+        )
 
     def transcribe(
         self, audio_path: str, messages: Optional[List[Dict[str, str]]] = None, **kwargs
@@ -174,22 +148,3 @@ class Phi4MultimodalASRModel(BaseMultimodalASRModel):
         except Exception as e:
             logger.error(f"Failed to transcribe audio {audio_path}: {e}")
             raise
-
-    def get_model_info(self) -> Dict[str, Any]:
-        """
-        Get information about the loaded model.
-
-        Returns:
-            Dictionary with model information
-        """
-        if not self.is_loaded:
-            return {"loaded": False}
-
-        return {
-            "loaded": True,
-            "model_cache_dir": str(self.model_cache_dir),
-            "device": self._phi4_inference.device
-            if self._phi4_inference
-            else "unknown",
-            "force_cpu": self.force_cpu,
-        }

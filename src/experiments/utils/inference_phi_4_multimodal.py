@@ -29,16 +29,16 @@ Chat Message Format:
 - Assistant messages show previous responses in multi-turn conversations
 """
 
-import os
 import json
+import logging
+import os
 import time
 import wave
-import numpy as np
 from pathlib import Path
-from typing import Optional, Tuple, Dict, Any
-import logging
+from typing import Any, Dict, Optional, Tuple
 
 import hydra
+import numpy as np
 from omegaconf import DictConfig, OmegaConf
 
 # Set up logging
@@ -52,11 +52,11 @@ os.environ["TRANSFORMERS_USE_FLASH_ATTENTION_2"] = "false"
 os.environ["DISABLE_FLASH_ATTN"] = "1"
 
 try:
+    import librosa
     import torch
     import torchaudio
-    import librosa
-    from transformers import AutoModelForCausalLM, AutoProcessor, GenerationConfig
     from PIL import Image
+    from transformers import AutoModelForCausalLM, AutoProcessor, GenerationConfig
 except ImportError as e:
     logger.error(f"Missing required dependency: {e}")
     logger.error(
@@ -70,7 +70,9 @@ try:
 
     BITSANDBYTES_AVAILABLE = True
 except ImportError:
-    logger.warning("bitsandbytes not available - quantization will be disabled (normal for Mac M4)")
+    logger.warning(
+        "bitsandbytes not available - quantization will be disabled (normal for Mac M4)"
+    )
     BITSANDBYTES_AVAILABLE = False
     BitsAndBytesConfig = None
 
@@ -78,7 +80,11 @@ except ImportError:
 class Phi4MultimodalInference:
     """Handle Phi-4 multimodal model loading and inference"""
 
-    def __init__(self, model_cache_dir: str = "/Users/Benjamin/dev/ssa/models", force_cpu: bool = False):
+    def __init__(
+        self,
+        model_cache_dir: str = "/Users/Benjamin/dev/ssa/models",
+        force_cpu: bool = False,
+    ):
         self.model_cache_dir = Path(model_cache_dir)
         self.model_cache_dir.mkdir(parents=True, exist_ok=True)
         self.force_cpu = force_cpu
@@ -109,7 +115,11 @@ class Phi4MultimodalInference:
             logger.info("Using CPU device")
             return "cpu"
 
-    def load_model(self, model_name: str = "microsoft/Phi-4-multimodal-instruct", use_4bit: bool = True):
+    def load_model(
+        self,
+        model_name: str = "microsoft/Phi-4-multimodal-instruct",
+        use_4bit: bool = True,
+    ):
         """Load the Phi-4 multimodal model with optimizations for Mac M4"""
         logger.info(f"Loading model: {model_name}")
         logger.info(f"Using device: {self.device}")
@@ -130,7 +140,9 @@ class Phi4MultimodalInference:
                     bnb_4bit_use_double_quant=True,
                     bnb_4bit_quant_type="nf4",
                 )
-            elif use_4bit and (not BITSANDBYTES_AVAILABLE or self.device in ["mps", "cpu"]):
+            elif use_4bit and (
+                not BITSANDBYTES_AVAILABLE or self.device in ["mps", "cpu"]
+            ):
                 logger.warning(
                     f"4-bit quantization requested but not supported on {self.device} device or bitsandbytes not available - using full precision"
                 )
@@ -172,9 +184,9 @@ class Phi4MultimodalInference:
                 model_kwargs["quantization_config"] = quantization_config
 
             # Monkey patch to fix PEFT compatibility issue using import hook
-            import types
-            import sys
             import importlib.util
+            import sys
+            import types
 
             # Create the missing method for PEFT compatibility
             def prepare_inputs_for_generation(self, input_ids, **kwargs):
@@ -199,9 +211,15 @@ class Phi4MultimodalInference:
                         module_obj = sys.modules[module_name]
                         if hasattr(module_obj, "Phi4MMModel"):
                             phi4mm_class = getattr(module_obj, "Phi4MMModel")
-                            if not hasattr(phi4mm_class, "prepare_inputs_for_generation"):
-                                phi4mm_class.prepare_inputs_for_generation = prepare_inputs_for_generation
-                                logger.info(f"Successfully patched Phi4MMModel in module {module_name}")
+                            if not hasattr(
+                                phi4mm_class, "prepare_inputs_for_generation"
+                            ):
+                                phi4mm_class.prepare_inputs_for_generation = (
+                                    prepare_inputs_for_generation
+                                )
+                                logger.info(
+                                    f"Successfully patched Phi4MMModel in module {module_name}"
+                                )
 
                 return module
 
@@ -211,7 +229,9 @@ class Phi4MultimodalInference:
             builtins.__import__ = patching_import
 
             try:
-                self.model = AutoModelForCausalLM.from_pretrained(model_name, **model_kwargs)
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    model_name, **model_kwargs
+                )
             except Exception as e:
                 # Before re-raising, try one more direct patch attempt
                 logger.warning(f"Model loading failed with: {e}")
@@ -222,9 +242,15 @@ class Phi4MultimodalInference:
                         module_obj = sys.modules[module_name]
                         if hasattr(module_obj, "Phi4MMModel"):
                             phi4mm_class = getattr(module_obj, "Phi4MMModel")
-                            if not hasattr(phi4mm_class, "prepare_inputs_for_generation"):
-                                phi4mm_class.prepare_inputs_for_generation = prepare_inputs_for_generation
-                                logger.info(f"Emergency patched Phi4MMModel in module {module_name}")
+                            if not hasattr(
+                                phi4mm_class, "prepare_inputs_for_generation"
+                            ):
+                                phi4mm_class.prepare_inputs_for_generation = (
+                                    prepare_inputs_for_generation
+                                )
+                                logger.info(
+                                    f"Emergency patched Phi4MMModel in module {module_name}"
+                                )
 
                                 # Try loading again
                                 try:
@@ -233,7 +259,9 @@ class Phi4MultimodalInference:
                                     )
                                     break
                                 except Exception as e2:
-                                    logger.error(f"Even after emergency patching, failed with: {e2}")
+                                    logger.error(
+                                        f"Even after emergency patching, failed with: {e2}"
+                                    )
                                     continue
                 else:
                     # Re-raise original exception if patching didn't help
@@ -246,7 +274,9 @@ class Phi4MultimodalInference:
             if hasattr(self.model, "model") and not hasattr(
                 self.model.model, "prepare_inputs_for_generation"
             ):
-                logger.info("Adding missing prepare_inputs_for_generation method post-load...")
+                logger.info(
+                    "Adding missing prepare_inputs_for_generation method post-load..."
+                )
 
                 def prepare_inputs_for_generation(self, input_ids, **kwargs):
                     """Fallback method for PEFT compatibility"""
@@ -299,7 +329,9 @@ class Phi4MultimodalInference:
         """Load and preprocess audio file"""
         try:
             # Load audio using librosa for better compatibility
-            audio, sr = librosa.load(audio_path, sr=16000)  # Phi-4 typically expects 16kHz
+            audio, sr = librosa.load(
+                audio_path, sr=16000
+            )  # Phi-4 typically expects 16kHz
 
             # Return as numpy array and sample rate tuple for processor
             return audio, sr
@@ -372,11 +404,15 @@ class Phi4MultimodalInference:
                     user_start = text_prompt.find("<|user|>")
                     user_end = text_prompt.find("<|end|>", user_start)
                     if user_start != -1 and user_end != -1:
-                        user_content = text_prompt[user_start + 8 : user_end]  # 8 is len("<|user|>")
+                        user_content = text_prompt[
+                            user_start + 8 : user_end
+                        ]  # 8 is len("<|user|>")
                         # Add audio token at the beginning of user content
                         new_user_content = "<|audio_1|>" + user_content
                         text_prompt = (
-                            text_prompt[: user_start + 8] + new_user_content + text_prompt[user_end:]
+                            text_prompt[: user_start + 8]
+                            + new_user_content
+                            + text_prompt[user_end:]
                         )
 
             logger.info(f"Formatted prompt: {text_prompt[:200]}...")
@@ -402,11 +438,15 @@ class Phi4MultimodalInference:
         if audio_path:
             logger.info(f"Loading audio from: {audio_path}")
             audio, samplerate = self.load_audio(audio_path)
-            inputs["audios"] = [(audio, samplerate)]  # Note: 'audios' plural and list of tuples
+            inputs["audios"] = [
+                (audio, samplerate)
+            ]  # Note: 'audios' plural and list of tuples
 
         # Process inputs
         try:
-            processed_inputs = self.processor(**inputs, return_tensors="pt", padding=True)
+            processed_inputs = self.processor(
+                **inputs, return_tensors="pt", padding=True
+            )
 
             # Verify model device before moving inputs
             if hasattr(self.model, "device"):
@@ -447,7 +487,9 @@ class Phi4MultimodalInference:
                 # Explicitly set num_logits_to_keep to avoid None error
                 processed_inputs["num_logits_to_keep"] = 0
 
-                outputs = self.model.generate(**processed_inputs, generation_config=generation_config)
+                outputs = self.model.generate(
+                    **processed_inputs, generation_config=generation_config
+                )
 
             # Decode response
             response = self.processor.decode(outputs[0], skip_special_tokens=True)
@@ -515,7 +557,8 @@ def main(cfg: DictConfig) -> None:
         # Initialize components
         logger.info("Initializing Phi-4 Multimodal Inference...")
         phi4 = Phi4MultimodalInference(
-            model_cache_dir=cfg.model.cache_dir, force_cpu=cfg.device.get("force_cpu", False)
+            model_cache_dir=cfg.model.cache_dir,
+            force_cpu=cfg.device.get("force_cpu", False),
         )
 
         # Load model
@@ -561,7 +604,7 @@ def main(cfg: DictConfig) -> None:
         for i, message in enumerate(messages):
             role = message.get("role", "unknown")
             content = message.get("content", "")
-            print(f"  {i+1}. {role.capitalize()}: {content}")
+            print(f"  {i + 1}. {role.capitalize()}: {content}")
 
         if audio_path:
             print(f"Audio File: {audio_path}")
