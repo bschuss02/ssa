@@ -1,12 +1,13 @@
+import logging
 import os
 import re
-from typing import Optional, Dict, Any, List
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import numpy as np
 import polars as pl
 import soundfile as sf
-import numpy as np
-from datasets import Dataset, Features, Audio, Value, Sequence
-from pathlib import Path
-import logging
+from datasets import Audio, Dataset, Features, Sequence, Value
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +85,9 @@ class FluencyBankDataset:
                 missing_files.append(audio_path)
 
         if missing_files:
-            logger.warning(f"Found {len(missing_files)} missing audio files out of {len(audio_paths)}")
+            logger.warning(
+                f"Found {len(missing_files)} missing audio files out of {len(audio_paths)}"
+            )
             # Remove rows with missing audio files
             valid_paths = [path for path in audio_paths if os.path.exists(path)]
             self.df = self.df.filter(pl.col("clip_audio_file").is_in(valid_paths))
@@ -121,12 +124,18 @@ class FluencyBankDataset:
                 if len(audio_data) > max_samples:
                     audio_data = audio_data[:max_samples]
 
-            return {"array": audio_data.astype(np.float32), "sampling_rate": self.audio_sample_rate}
+            return {
+                "array": audio_data.astype(np.float32),
+                "sampling_rate": self.audio_sample_rate,
+            }
 
         except Exception as e:
             logger.error(f"Error loading audio file {audio_path}: {e}")
             # Return empty audio array as fallback
-            return {"array": np.array([], dtype=np.float32), "sampling_rate": self.audio_sample_rate}
+            return {
+                "array": np.array([], dtype=np.float32),
+                "sampling_rate": self.audio_sample_rate,
+            }
 
     def _prepare_features(self) -> Features:
         """Define the features schema for the HuggingFace dataset."""
@@ -192,7 +201,7 @@ class FluencyBankDataset:
         samples = []
         for i, row in enumerate(data_dicts):
             if i % 100 == 0:
-                logger.info(f"Processing sample {i+1}/{len(data_dicts)}")
+                logger.info(f"Processing sample {i + 1}/{len(data_dicts)}")
 
             sample = self._prepare_sample(row)
             samples.append(sample)
@@ -210,13 +219,17 @@ class FluencyBankDataset:
             "num_samples": len(self.df),
             "columns": self.df.columns,
             "unique_speakers": (
-                self.df.select("speaker_id").n_unique() if "speaker_id" in self.df.columns else None
+                self.df.select("speaker_id").n_unique()
+                if "speaker_id" in self.df.columns
+                else None
             ),
             "unique_clips": self.df.select("clip_id").n_unique(),
         }
 
         if "start_time" in self.df.columns and "end_time" in self.df.columns:
-            durations = self.df.select((pl.col("end_time") - pl.col("start_time")).alias("duration"))
+            durations = self.df.select(
+                (pl.col("end_time") - pl.col("start_time")).alias("duration")
+            )
             stats.update(
                 {
                     "total_duration_hours": durations.sum().item() / 3600,
