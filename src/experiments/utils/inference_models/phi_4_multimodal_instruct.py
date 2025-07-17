@@ -10,6 +10,7 @@ from .base_multimodal_asr_model import BaseMultimodalASRModel
 class Phi4MultimodalASRModel(BaseMultimodalASRModel):
     def __init__(
         self,
+        model_name: str,
         model_path: str,
         device: Optional[str] = None,
     ):
@@ -19,7 +20,7 @@ class Phi4MultimodalASRModel(BaseMultimodalASRModel):
             model_path (str): Path to the pretrained model.
             device (Optional[str]): Device to load the model on.
         """
-        super().__init__(model_path=model_path, device=device)
+        super().__init__(model_name=model_name, model_path=model_path, device=device)
         self.model = None
         self.processor = None
         self.device = device

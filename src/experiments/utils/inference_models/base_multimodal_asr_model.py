@@ -19,9 +19,11 @@ class BaseMultimodalASRModel(ABC):
     def __init__(
         self,
         *,
+        model_name: str,
         model_path: str,
         device: Optional[str] = None,
     ):
+        self.model_name = model_name
         self.model_path = Path(model_path)
         self.device = device
 

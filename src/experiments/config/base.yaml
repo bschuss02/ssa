@@ -1,0 +1,7 @@
+models_to_evaluate:
+  - phi_4_multimodal_instruct
+datasets_to_evaluate:
+  - fluencybank
+max_samples_per_dataset: 1
+save_samples: true
+output_dir: /Users/Benjamin/dev/ssa/output/eval
