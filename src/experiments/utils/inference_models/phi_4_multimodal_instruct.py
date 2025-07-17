@@ -49,14 +49,31 @@ class Phi4MultimodalASRModel(BaseMultimodalASRModel):
             ]
         audio_data, sample_rate = sf.read(audio_path)
 
+        # Build prompt from messages
         user_prompt = "<|user|>"
         assistant_prompt = "<|assistant|>"
         prompt_suffix = "<|end|>"
-
-        speech_prompt = "Based on the attached audio, transcribe the spoken content."
-        prompt = (
-            f"{user_prompt}<|audio_1|>{speech_prompt}{prompt_suffix}{assistant_prompt}"
-        )
+        prompt = ""
+        audio_token_inserted = False
+        for i, msg in enumerate(messages):
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if role == "system":
+                # System prompt can be prepended or ignored depending on model, here we prepend
+                prompt = content + "\n" + prompt
+            elif role == "user":
+                prompt += user_prompt
+                # Insert <|audio_1|> after the first user message if not present
+                if not audio_token_inserted:
+                    if "<|audio_1|>" not in content:
+                        content = f"<|audio_1|>{content}"
+                    audio_token_inserted = True
+                prompt += content + prompt_suffix
+            elif role == "assistant":
+                prompt += assistant_prompt + content + prompt_suffix
+        # If no assistant prompt at the end, add it
+        if not prompt.strip().endswith(assistant_prompt):
+            prompt += assistant_prompt
 
         # Prepare input
         if self.processor is None:

@@ -12,7 +12,10 @@ def main():
 
     messages = [
         {"role": "system", "content": "You are an expert audio transcriptionist."},
-        {"role": "user", "content": "Transcribe this audio file accurately."},
+        {
+            "role": "user",
+            "content": "translate the words from the audio file into Spanish.",
+        },
     ]
 
     print("Starting transcription...")
