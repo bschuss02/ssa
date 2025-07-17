@@ -19,23 +19,14 @@ class BaseMultimodalASRModel(ABC):
     def __init__(
         self,
         *,
-        model_cache_dir: str = "./models",
+        model_path: str,
         device: Optional[str] = None,
     ):
-        """
-        Initialize the ASR model.
-
-        Args:
-            model_cache_dir: Directory to cache downloaded models
-            force_cpu: Force CPU usage even if GPU is available
-            device: Specific device to use (overrides auto-detection)
-        """
-        self.model_cache_dir = Path(model_cache_dir)
-        self.model_cache_dir.mkdir(parents=True, exist_ok=True)
+        self.model_path = Path(model_path)
         self.device = device
 
     @abstractmethod
-    def load_model(self, model_name: str, **kwargs) -> None:
+    def load_model(self, **kwargs) -> None:
         """
         Load the ASR model and processor.
 

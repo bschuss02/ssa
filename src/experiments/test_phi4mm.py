@@ -4,11 +4,11 @@ from experiments.utils.inference_models.phi_4_multimodal_instruct import (
 
 
 def main():
-    model = Phi4MultimodalASRModel()
-
-    model.load_model(
-        model_name="/Users/Benjamin/dev/ssa/models/Phi-4-multimodal-instruct"
+    model = Phi4MultimodalASRModel(
+        model_path="/Users/Benjamin/dev/ssa/models/Phi-4-multimodal-instruct"
     )
+
+    model.load_model()
 
     messages = [
         {"role": "system", "content": "You are an expert audio transcriptionist."},
