@@ -70,27 +70,12 @@ class Phi4MultimodalASRModel(BaseMultimodalASRModel):
         )
 
     def transcribe(
-        self, audio_path: str, messages: Optional[List[Dict[str, str]]] = None, **kwargs
+        self,
+        *,
+        audio_path: str,
+        messages: Optional[List[Dict[str, str]]] = None,
+        **kwargs,
     ) -> str:
-        """
-        Transcribe audio with optional chat context using Phi-4 multimodal model.
-
-        Args:
-            audio_path: Path to the audio file to transcribe
-            messages: Optional list of chat messages with 'role' and 'content' keys
-                     If None, will create a default transcription request
-            **kwargs: Additional transcription parameters:
-                - max_new_tokens: Maximum number of tokens to generate (default: 500)
-                - temperature: Sampling temperature (default: 0.7)
-                - do_sample: Whether to use sampling (default: True)
-                - system_message: Optional system message to set behavior
-
-        Returns:
-            Transcribed text from the audio
-        """
-        if not self._model_loaded or self._phi4_inference is None:
-            raise RuntimeError("Model not loaded. Call load_model() first.")
-
         if not Path(audio_path).exists():
             raise FileNotFoundError(f"Audio file not found: {audio_path}")
 

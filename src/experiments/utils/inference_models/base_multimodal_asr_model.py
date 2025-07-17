@@ -47,7 +47,11 @@ class BaseMultimodalASRModel(ABC):
 
     @abstractmethod
     def transcribe(
-        self, audio_path: str, messages: Optional[List[Dict[str, str]]] = None, **kwargs
+        self,
+        *,
+        audio_path: str,
+        messages: Optional[List[Dict[str, str]]] = None,
+        **kwargs,
     ) -> str:
         """
         Transcribe audio with optional chat context.

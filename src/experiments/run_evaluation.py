@@ -25,8 +25,10 @@ from tqdm import tqdm
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Import our custom modules
-from utils.datasets.fluencybank_dataset import create_fluencybank_dataset
-from utils.inference_models.phi_4_multimodal_instruct import Phi4MultimodalASRModel
+from experiments.utils.datasets.fluencybank_dataset import create_fluencybank_dataset
+from experiments.utils.inference_models.phi_4_multimodal_instruct import (
+    Phi4MultimodalASRModel,
+)
 
 # Import evaluation libraries
 try:
