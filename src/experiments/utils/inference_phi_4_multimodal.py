@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+# The above code is a Python script for running Phi-4 Multimodal Inference with Audio Support and
+Chat Completion. It is designed to support chat completion messages and audio file processing. The
+script can be used for various purposes such as simple text input, chat completion messages,
+multi-turn conversation, command line override with messages, and with system messages.
+!/usr/bin/env python3
 """
 Phi-4 Multimodal Inference Script with Audio Support and Chat Completion
 Supports chat completion messages + audio file processing

@@ -13,10 +13,12 @@ def main():
         {"role": "user", "content": "Transcribe this audio file accurately."},
     ]
 
-    # transcription = model.transcribe(
-    #     audio_path="/Users/Benjamin/dev/ssa/data/fluencybank/processed/wav_clips/20f_000_000.wav",
-    #     messages=messages,
-    # )
+    transcription = model.transcribe(
+        audio_path="/Users/Benjamin/dev/ssa/data/fluencybank/processed/wav_clips/20f_000_000.wav",
+        messages=messages,
+    )
+
+    print(f"Transcription: {transcription}")
 
 
 if __name__ == "__main__":
