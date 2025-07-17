@@ -8,7 +8,7 @@ audio with optional chat completion messages for context.
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional
 
 
 class BaseMultimodalASRModel(ABC):
@@ -17,7 +17,10 @@ class BaseMultimodalASRModel(ABC):
     """
 
     def __init__(
-        self, model_cache_dir: str = "./models", force_cpu: bool = False, device: Optional[str] = None
+        self,
+        model_cache_dir: str = "./models",
+        force_cpu: bool = False,
+        device: Optional[str] = None,
     ):
         """
         Initialize the ASR model.
@@ -44,7 +47,9 @@ class BaseMultimodalASRModel(ABC):
         pass
 
     @abstractmethod
-    def transcribe(self, audio_path: str, messages: Optional[List[Dict[str, str]]] = None, **kwargs) -> str:
+    def transcribe(
+        self, audio_path: str, messages: Optional[List[Dict[str, str]]] = None, **kwargs
+    ) -> str:
         """
         Transcribe audio with optional chat context.
 

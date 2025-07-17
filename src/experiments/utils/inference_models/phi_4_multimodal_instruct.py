@@ -7,10 +7,10 @@ using Microsoft's Phi-4 multimodal instruct model for audio transcription
 and multimodal inference.
 """
 
-import os
 import logging
-from typing import Optional, Dict, Any, List
+import os
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 # Disable flash attention manually for Mac M4 compatibility
 os.environ["FLASH_ATTENTION_DISABLE"] = "1"
@@ -34,7 +34,10 @@ class Phi4MultimodalASRModel(BaseMultimodalASRModel):
     """
 
     def __init__(
-        self, model_cache_dir: str = "./models", force_cpu: bool = False, device: Optional[str] = None
+        self,
+        model_cache_dir: str = "./models",
+        force_cpu: bool = False,
+        device: Optional[str] = None,
     ):
         """
         Initialize the Phi-4 multimodal ASR model.
@@ -48,7 +51,9 @@ class Phi4MultimodalASRModel(BaseMultimodalASRModel):
         self._phi4_inference = None
         self._model_loaded = False
 
-    def load_model(self, model_name: str = "microsoft/Phi-4-multimodal-instruct", **kwargs) -> None:
+    def load_model(
+        self, model_name: str = "microsoft/Phi-4-multimodal-instruct", **kwargs
+    ) -> None:
         """
         Load the Phi-4 multimodal model and processor.
 
@@ -70,7 +75,9 @@ class Phi4MultimodalASRModel(BaseMultimodalASRModel):
 
             from inference_phi_4_multimodal import Phi4MultimodalInference
 
-            logger.info(f"Initializing Phi-4 multimodal inference with model: {model_name}")
+            logger.info(
+                f"Initializing Phi-4 multimodal inference with model: {model_name}"
+            )
 
             # Initialize the Phi4MultimodalInference with our parameters
             self._phi4_inference = Phi4MultimodalInference(
@@ -88,7 +95,9 @@ class Phi4MultimodalASRModel(BaseMultimodalASRModel):
             logger.error(f"Failed to load Phi-4 multimodal model: {e}")
             raise
 
-    def transcribe(self, audio_path: str, messages: Optional[List[Dict[str, str]]] = None, **kwargs) -> str:
+    def transcribe(
+        self, audio_path: str, messages: Optional[List[Dict[str, str]]] = None, **kwargs
+    ) -> str:
         """
         Transcribe audio with optional chat context using Phi-4 multimodal model.
 
@@ -121,15 +130,26 @@ class Phi4MultimodalASRModel(BaseMultimodalASRModel):
                 )
                 messages = [
                     {"role": "system", "content": system_message},
-                    {"role": "user", "content": "Please transcribe this audio file accurately."},
+                    {
+                        "role": "user",
+                        "content": "Please transcribe this audio file accurately.",
+                    },
                 ]
             else:
                 # Use provided messages - ensure they're properly formatted
                 formatted_messages = []
                 for msg in messages:
-                    if not isinstance(msg, dict) or "role" not in msg or "content" not in msg:
-                        raise ValueError("Each message must be a dict with 'role' and 'content' keys")
-                    formatted_messages.append({"role": msg["role"], "content": msg["content"]})
+                    if (
+                        not isinstance(msg, dict)
+                        or "role" not in msg
+                        or "content" not in msg
+                    ):
+                        raise ValueError(
+                            "Each message must be a dict with 'role' and 'content' keys"
+                        )
+                    formatted_messages.append(
+                        {"role": msg["role"], "content": msg["content"]}
+                    )
                 messages = formatted_messages
 
             # Extract generation parameters
@@ -168,6 +188,8 @@ class Phi4MultimodalASRModel(BaseMultimodalASRModel):
         return {
             "loaded": True,
             "model_cache_dir": str(self.model_cache_dir),
-            "device": self._phi4_inference.device if self._phi4_inference else "unknown",
+            "device": self._phi4_inference.device
+            if self._phi4_inference
+            else "unknown",
             "force_cpu": self.force_cpu,
         }

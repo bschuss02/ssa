@@ -6,19 +6,19 @@ This script evaluates the Phi-4 multimodal ASR model on the FluencyBank dataset
 and provides detailed analysis including WER, CER, and other ASR quality metrics.
 """
 
+import json
+import logging
 import os
 import sys
-import logging
 import time
-import json
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, asdict
+from typing import Any, Dict, List, Optional, Union
 
 import hydra
-from omegaconf import DictConfig, OmegaConf
-import polars as pl
 import numpy as np
+import polars as pl
+from omegaconf import DictConfig, OmegaConf
 from tqdm import tqdm
 
 # Add the current directory to sys.path for imports
@@ -26,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Import our custom modules
 from utils.datasets.fluencybank_dataset import create_fluencybank_dataset
-from utils.models.phi_4_multimodal_instruct import Phi4MultimodalASRModel
+from utils.inference_models.phi_4_multimodal_instruct import Phi4MultimodalASRModel
 
 # Import evaluation libraries
 try:
@@ -41,7 +41,9 @@ except ImportError:
 # polars is already included in the project dependencies
 
 # Set up logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 
@@ -97,7 +99,9 @@ class ASRMetricsCalculator:
 
     def __init__(self):
         if not JIWER_AVAILABLE:
-            raise ImportError("jiwer package required for ASR metrics. Install with: uv add jiwer")
+            raise ImportError(
+                "jiwer package required for ASR metrics. Install with: uv add jiwer"
+            )
 
     def normalize_text(self, text: str) -> str:
         """
@@ -176,7 +180,9 @@ class ASRMetricsCalculator:
             }
 
         except Exception as e:
-            logger.warning(f"Error calculating metrics for ref='{reference}', hyp='{hypothesis}': {e}")
+            logger.warning(
+                f"Error calculating metrics for ref='{reference}', hyp='{hypothesis}': {e}"
+            )
             return {
                 "wer": 1.0,
                 "mer": 1.0,
@@ -210,13 +216,17 @@ class Phi4ASREvaluator:
         )
 
         logger.info(f"Loading model: {self.config.model.name}")
-        self.model.load_model(model_name=self.config.model.name, use_4bit=self.config.model.use_4bit)
+        self.model.load_model(
+            model_name=self.config.model.name, use_4bit=self.config.model.use_4bit
+        )
 
         logger.info("Model loaded successfully")
 
     def load_dataset(self):
         """Load the FluencyBank dataset."""
-        logger.info(f"Loading FluencyBank dataset from: {self.config.dataset.parquet_path}")
+        logger.info(
+            f"Loading FluencyBank dataset from: {self.config.dataset.parquet_path}"
+        )
 
         dataset = create_fluencybank_dataset(
             parquet_path=self.config.dataset.parquet_path,
@@ -229,8 +239,18 @@ class Phi4ASREvaluator:
 
         # Limit dataset size if specified
         if self.config.evaluation.max_samples > 0:
-            dataset = dataset.select(range(min(self.config.evaluation.max_samples, len(dataset))))
+            dataset = dataset.select(
+                range(min(self.config.evaluation.max_samples, len(dataset)))
+            )
             logger.info(f"Limited dataset to {len(dataset)} samples")
+
+        logger.info(f"Dataset type: {type(dataset)}")
+        logger.info(f"Dataset length: {len(dataset)}")
+        if len(dataset) > 0:
+            logger.info(f"First sample type: {type(dataset[0])}")
+            logger.info(
+                f"First sample keys: {list(dataset[0].keys()) if hasattr(dataset[0], 'keys') else 'No keys'}"
+            )
 
         return dataset
 
@@ -243,16 +263,33 @@ class Phi4ASREvaluator:
 
     def evaluate_sample(self, sample: Dict[str, Any]) -> EvaluationSample:
         """Evaluate a single sample from the dataset."""
+        logger.info(f"Evaluating sample with keys: {list(sample.keys())}")
         clip_id = sample["clip_id"]
         reference_text = sample["text"]
         audio_data = sample["audio"]
+        logger.info(f"Clip ID: {clip_id}, Text: {reference_text[:100]}...")
+        logger.info(
+            f"Audio data keys: {list(audio_data.keys()) if isinstance(audio_data, dict) else 'Not a dict'}"
+        )
 
         # Save audio to temporary file for inference
         import tempfile
+
         import soundfile as sf
 
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_audio:
-            sf.write(temp_audio.name, audio_data["array"], audio_data["sampling_rate"])
+            # Ensure audio array is 1D and has the correct shape
+            audio_array = audio_data["array"]
+            if len(audio_array.shape) > 1:
+                # If stereo, convert to mono by taking mean
+                audio_array = np.mean(audio_array, axis=1)
+
+            # Ensure audio array is not empty
+            if len(audio_array) == 0:
+                raise ValueError(f"Empty audio array for clip {clip_id}")
+
+            # Write audio to temporary file
+            sf.write(temp_audio.name, audio_array, audio_data["sampling_rate"])
             temp_audio_path = temp_audio.name
 
         try:
@@ -271,7 +308,9 @@ class Phi4ASREvaluator:
             inference_time = time.time() - start_time
 
             # Calculate ASR metrics
-            metrics = self.metrics_calculator.calculate_metrics(reference_text, hypothesis_text)
+            metrics = self.metrics_calculator.calculate_metrics(
+                reference_text, hypothesis_text
+            )
 
             # Create evaluation sample
             eval_sample = EvaluationSample(
@@ -318,7 +357,15 @@ class Phi4ASREvaluator:
 
         for i, sample in enumerate(tqdm(dataset, desc="Evaluating samples")):
             try:
-                eval_sample = self.evaluate_sample(sample)
+                logger.info(f"Processing sample {i}: {type(sample)}")
+                # Convert sample to dict if it's not already
+                if hasattr(sample, "items"):
+                    sample_dict = dict(sample)
+                else:
+                    sample_dict = sample
+
+                logger.info(f"Sample dict keys: {list(sample_dict.keys())}")
+                eval_sample = self.evaluate_sample(sample_dict)  # type: ignore
                 self.results.append(eval_sample)
 
                 # Accumulate statistics
@@ -337,11 +384,18 @@ class Phi4ASREvaluator:
 
                 # Log progress every N samples
                 if (i + 1) % self.config.evaluation.log_interval == 0:
-                    current_wer = np.mean([s.wer for s in self.results if s.wer is not None])
-                    logger.info(f"Processed {i+1}/{len(dataset)} samples. Current WER: {current_wer:.3f}")
+                    current_wer = np.mean(
+                        [s.wer for s in self.results if s.wer is not None]
+                    )
+                    logger.info(
+                        f"Processed {i + 1}/{len(dataset)} samples. Current WER: {current_wer:.3f}"
+                    )
 
             except Exception as e:
                 logger.error(f"Error evaluating sample {i}: {e}")
+                import traceback
+
+                logger.error(f"Full traceback: {traceback.format_exc()}")
                 continue
 
         # Calculate overall metrics
@@ -350,15 +404,26 @@ class Phi4ASREvaluator:
         if not valid_samples:
             raise RuntimeError("No valid samples evaluated")
 
-        mean_wer = np.mean([s.wer for s in valid_samples])
-        mean_cer = np.mean([s.cer for s in valid_samples])
-        mean_mer = np.mean([s.mer for s in valid_samples])
-        mean_wil = np.mean([s.wil for s in valid_samples])
-        mean_wip = np.mean([s.wip for s in valid_samples])
+        # Fix type issues by filtering out None values
+        wer_values = [s.wer for s in valid_samples if s.wer is not None]
+        cer_values = [s.cer for s in valid_samples if s.cer is not None]
+        mer_values = [s.mer for s in valid_samples if s.mer is not None]
+        wil_values = [s.wil for s in valid_samples if s.wil is not None]
+        wip_values = [s.wip for s in valid_samples if s.wip is not None]
+
+        mean_wer = float(np.mean(wer_values)) if wer_values else 1.0
+        mean_cer = float(np.mean(cer_values)) if cer_values else 1.0
+        mean_mer = float(np.mean(mer_values)) if mer_values else 1.0
+        mean_wil = float(np.mean(wil_values)) if wil_values else 1.0
+        mean_wip = float(np.mean(wip_values)) if wip_values else 0.0
 
         # Calculate performance metrics
-        samples_per_second = len(valid_samples) / total_inference_time if total_inference_time > 0 else 0
-        real_time_factor = total_inference_time / total_duration if total_duration > 0 else 0
+        samples_per_second = (
+            len(valid_samples) / total_inference_time if total_inference_time > 0 else 0
+        )
+        real_time_factor = (
+            total_inference_time / total_duration if total_duration > 0 else 0
+        )
 
         results = EvaluationResults(
             mean_wer=mean_wer,
@@ -372,10 +437,10 @@ class Phi4ASREvaluator:
             samples_per_second=samples_per_second,
             real_time_factor=real_time_factor,
             samples=valid_samples,
-            substitutions_count=total_substitutions,
-            deletions_count=total_deletions,
-            insertions_count=total_insertions,
-            hits_count=total_hits,
+            substitutions_count=int(total_substitutions),
+            deletions_count=int(total_deletions),
+            insertions_count=int(total_insertions),
+            hits_count=int(total_hits),
         )
 
         return results
@@ -406,9 +471,13 @@ class Phi4ASREvaluator:
         self.generate_summary_report(results, output_dir / "evaluation_summary.txt")
 
         # Save transcription examples
-        self.save_transcription_examples(results, output_dir / "transcription_examples.txt")
+        self.save_transcription_examples(
+            results, output_dir / "transcription_examples.txt"
+        )
 
-    def generate_summary_report(self, results: EvaluationResults, output_path: Path) -> None:
+    def generate_summary_report(
+        self, results: EvaluationResults, output_path: Path
+    ) -> None:
         """Generate a human-readable summary report."""
         with open(output_path, "w") as f:
             f.write("=" * 80 + "\n")
@@ -422,44 +491,64 @@ class Phi4ASREvaluator:
             f.write(f"Max Samples: {self.config.evaluation.max_samples}\n\n")
 
             f.write("OVERALL METRICS:\n")
-            f.write(f"Word Error Rate (WER):     {results.mean_wer:.3f} ({results.mean_wer*100:.1f}%)\n")
-            f.write(f"Character Error Rate (CER): {results.mean_cer:.3f} ({results.mean_cer*100:.1f}%)\n")
-            f.write(f"Match Error Rate (MER):    {results.mean_mer:.3f} ({results.mean_mer*100:.1f}%)\n")
-            f.write(f"Word Info Lost (WIL):      {results.mean_wil:.3f} ({results.mean_wil*100:.1f}%)\n")
-            f.write(f"Word Info Preserved (WIP): {results.mean_wip:.3f} ({results.mean_wip*100:.1f}%)\n\n")
+            f.write(
+                f"Word Error Rate (WER):     {results.mean_wer:.3f} ({results.mean_wer * 100:.1f}%)\n"
+            )
+            f.write(
+                f"Character Error Rate (CER): {results.mean_cer:.3f} ({results.mean_cer * 100:.1f}%)\n"
+            )
+            f.write(
+                f"Match Error Rate (MER):    {results.mean_mer:.3f} ({results.mean_mer * 100:.1f}%)\n"
+            )
+            f.write(
+                f"Word Info Lost (WIL):      {results.mean_wil:.3f} ({results.mean_wil * 100:.1f}%)\n"
+            )
+            f.write(
+                f"Word Info Preserved (WIP): {results.mean_wip:.3f} ({results.mean_wip * 100:.1f}%)\n\n"
+            )
 
             f.write("DATASET STATISTICS:\n")
             f.write(f"Total Samples:     {results.total_samples}\n")
             f.write(
-                f"Total Duration:    {results.total_duration:.2f} seconds ({results.total_duration/60:.1f} minutes)\n"
+                f"Total Duration:    {results.total_duration:.2f} seconds ({results.total_duration / 60:.1f} minutes)\n"
             )
-            f.write(f"Avg Sample Length: {results.total_duration/results.total_samples:.2f} seconds\n\n")
+            f.write(
+                f"Avg Sample Length: {results.total_duration / results.total_samples:.2f} seconds\n\n"
+            )
 
             f.write("PERFORMANCE STATISTICS:\n")
             f.write(
-                f"Total Inference Time: {results.total_inference_time:.2f} seconds ({results.total_inference_time/60:.1f} minutes)\n"
+                f"Total Inference Time: {results.total_inference_time:.2f} seconds ({results.total_inference_time / 60:.1f} minutes)\n"
             )
             f.write(f"Samples per Second:   {results.samples_per_second:.2f}\n")
             f.write(f"Real-time Factor:     {results.real_time_factor:.2f}x\n\n")
 
             f.write("ERROR ANALYSIS:\n")
-            total_errors = results.substitutions_count + results.deletions_count + results.insertions_count
+            total_errors = (
+                results.substitutions_count
+                + results.deletions_count
+                + results.insertions_count
+            )
             total_words = total_errors + results.hits_count
             f.write(f"Total Words:    {total_words}\n")
 
             if total_words > 0:
-                f.write(f"Correct (Hits): {results.hits_count} ({results.hits_count/total_words*100:.1f}%)\n")
                 f.write(
-                    f"Substitutions:  {results.substitutions_count} ({results.substitutions_count/total_words*100:.1f}%)\n"
+                    f"Correct (Hits): {results.hits_count} ({results.hits_count / total_words * 100:.1f}%)\n"
                 )
                 f.write(
-                    f"Deletions:      {results.deletions_count} ({results.deletions_count/total_words*100:.1f}%)\n"
+                    f"Substitutions:  {results.substitutions_count} ({results.substitutions_count / total_words * 100:.1f}%)\n"
                 )
                 f.write(
-                    f"Insertions:     {results.insertions_count} ({results.insertions_count/total_words*100:.1f}%)\n\n"
+                    f"Deletions:      {results.deletions_count} ({results.deletions_count / total_words * 100:.1f}%)\n"
+                )
+                f.write(
+                    f"Insertions:     {results.insertions_count} ({results.insertions_count / total_words * 100:.1f}%)\n\n"
                 )
             else:
-                f.write("No word-level statistics available (no valid metrics calculated)\n\n")
+                f.write(
+                    "No word-level statistics available (no valid metrics calculated)\n\n"
+                )
 
             # WER distribution
             wer_values = [s.wer for s in results.samples if s.wer is not None]
@@ -471,7 +560,9 @@ class Phi4ASREvaluator:
 
         logger.info(f"Saved summary report to: {output_path}")
 
-    def save_transcription_examples(self, results: EvaluationResults, output_path: Path) -> None:
+    def save_transcription_examples(
+        self, results: EvaluationResults, output_path: Path
+    ) -> None:
         """Save example transcriptions for qualitative analysis."""
         # Sort samples by WER for analysis
         sorted_samples = sorted(results.samples, key=lambda x: x.wer if x.wer else 1.0)
@@ -484,7 +575,7 @@ class Phi4ASREvaluator:
             f.write("BEST TRANSCRIPTIONS (Lowest WER):\n")
             f.write("-" * 50 + "\n")
             for i, sample in enumerate(sorted_samples[:10]):
-                f.write(f"\nExample {i+1} (WER: {sample.wer:.3f}):\n")
+                f.write(f"\nExample {i + 1} (WER: {sample.wer:.3f}):\n")
                 f.write(f"Clip ID: {sample.clip_id}\n")
                 f.write(f"Reference: {sample.reference_text}\n")
                 f.write(f"Hypothesis: {sample.hypothesis_text}\n")
@@ -495,7 +586,7 @@ class Phi4ASREvaluator:
             f.write(f"\n\nWORST TRANSCRIPTIONS (Highest WER):\n")
             f.write("-" * 50 + "\n")
             for i, sample in enumerate(sorted_samples[-10:]):
-                f.write(f"\nExample {i+1} (WER: {sample.wer:.3f}):\n")
+                f.write(f"\nExample {i + 1} (WER: {sample.wer:.3f}):\n")
                 f.write(f"Clip ID: {sample.clip_id}\n")
                 f.write(f"Reference: {sample.reference_text}\n")
                 f.write(f"Hypothesis: {sample.hypothesis_text}\n")
@@ -505,7 +596,9 @@ class Phi4ASREvaluator:
         logger.info(f"Saved transcription examples to: {output_path}")
 
 
-@hydra.main(version_base=None, config_path="config", config_name="phi_4_multimodal_eval")
+@hydra.main(
+    version_base=None, config_path="config", config_name="phi_4_multimodal_eval"
+)
 def main(config: DictConfig) -> None:
     """Main evaluation function."""
     logger.info("Starting Phi-4 Multimodal ASR Evaluation")
@@ -513,7 +606,9 @@ def main(config: DictConfig) -> None:
 
     # Validate configuration
     if not JIWER_AVAILABLE:
-        logger.error("jiwer package is required for evaluation. Install with: uv add jiwer")
+        logger.error(
+            "jiwer package is required for evaluation. Install with: uv add jiwer"
+        )
         return
 
     # Create evaluator and run evaluation
@@ -527,8 +622,12 @@ def main(config: DictConfig) -> None:
         logger.info("=" * 60)
         logger.info("EVALUATION COMPLETED SUCCESSFULLY")
         logger.info("=" * 60)
-        logger.info(f"Overall WER: {results.mean_wer:.3f} ({results.mean_wer*100:.1f}%)")
-        logger.info(f"Overall CER: {results.mean_cer:.3f} ({results.mean_cer*100:.1f}%)")
+        logger.info(
+            f"Overall WER: {results.mean_wer:.3f} ({results.mean_wer * 100:.1f}%)"
+        )
+        logger.info(
+            f"Overall CER: {results.mean_cer:.3f} ({results.mean_cer * 100:.1f}%)"
+        )
         logger.info(f"Samples evaluated: {results.total_samples}")
         logger.info(f"Real-time factor: {results.real_time_factor:.2f}x")
         logger.info(f"Results saved to: {config.output.dir}")
