@@ -6,21 +6,13 @@ This script evaluates the Phi-4 multimodal ASR model on the FluencyBank dataset
 and provides detailed analysis including WER, CER, and other ASR quality metrics.
 """
 
-import json
 import logging
-import os
-import sys
-import time
-from dataclasses import asdict, dataclass
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import List
 
 import hydra
 import jiwer
 import numpy as np
-import polars as pl
-from datasets import Dataset
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 from pydantic import BaseModel
 from rich.logging import RichHandler
 from rich.progress import (
@@ -30,11 +22,9 @@ from rich.progress import (
     TextColumn,
     TimeElapsedColumn,
 )
-from tqdm import tqdm
 
 from experiments.config.models.asr_evaluator_config import ASREvaluatorConfig
 from experiments.utils.datasets.dataset_registry import dataset_registry
-from experiments.utils.datasets.fluencybank_dataset import create_fluencybank_dataset
 from experiments.utils.inference_models.base_multimodal_asr_model import (
     BaseMultimodalASRModel,
 )
@@ -74,8 +64,9 @@ class ASREvaluator:
             inference_model_registry[model_name]
             for model_name in cfg.models_to_evaluate
         ]
+        self.dataset_names = cfg.datasets_to_evaluate
         self.datasets = [
-            dataset_registry[dataset_name] for dataset_name in cfg.datasets_to_evaluate
+            dataset_registry[dataset_name] for dataset_name in self.dataset_names
         ]
         logger.info(
             f"Initialized ASR Evaluator with {len(self.models)} models and {len(self.datasets)} datasets"
@@ -107,7 +98,9 @@ class ASREvaluator:
                 )
 
                 for dataset_idx, dataset in enumerate(self.datasets):
-                    logger.info(f"Processing dataset: {dataset.name}")
+                    logger.info(
+                        f"Processing dataset: {self.dataset_names[dataset_idx]}"
+                    )
 
                     if self.cfg.max_samples_per_dataset is not None:
                         dataset = dataset.select(
@@ -119,16 +112,20 @@ class ASREvaluator:
 
                     # Progress bar for samples within each dataset
                     sample_task = progress.add_task(
-                        f"[yellow]Processing samples for {dataset.name}...",
+                        f"[yellow]Processing samples for {self.dataset_names[dataset_idx]}...",
                         total=len(dataset),
                     )
 
                     for item_idx, item in enumerate(dataset):
                         audio_path = item["audio"]["path"]
+                        sample_rate = item["audio"]["sampling_rate"]
+                        audio_array = np.array(item["audio"]["array"])
                         logger.debug(f"Processing audio: {audio_path}")
 
                         try:
-                            prediction = model.transcribe(audio_path)
+                            prediction = model.transcribe(
+                                audio_array=audio_array, sample_rate=sample_rate
+                            )
                             transcription = item["unannotated_text"]
 
                             # Calculate metrics
@@ -153,7 +150,7 @@ class ASREvaluator:
                             results.append(
                                 EvaluationResultRow(
                                     model_name=model.model_name,
-                                    dataset_name=dataset.name,
+                                    dataset_name=self.dataset_names[dataset_idx],
                                     metrics=metrics,
                                 )
                             )
@@ -180,21 +177,22 @@ class ASREvaluator:
         return results
 
     def evaluate(self):
-        model = self.models[0]
-        dataset = self.datasets[0]
-        dataset = dataset.select(range(10))
-        for item in dataset:            audio_array = item["clip_audio_file"]["array"]
-            sample_rate = item["audio"]["sampling_rate"]
-            audio_array = item['audio']['array']
-            prediction = model.transcribe(
-                audio_array=audio_array, sample_rate=sample_rate
-            )
-            print(prediction)
-            break
-        # logger.info("Starting ASR evaluation...")
-        # results = self.inference_and_record()
-        # logger.info("Evaluation completed successfully")
-        # return results
+        # model = self.models[0]
+        # dataset = self.datasets[0]
+        # dataset = dataset.select(range(10))
+        # model.load_model()
+        # for item in dataset:
+        #     sample_rate = item["audio"]["sampling_rate"]
+        #     audio_array = np.array(item["audio"]["array"])
+        #     prediction = model.transcribe(
+        #         audio_array=audio_array, sample_rate=sample_rate
+        #     )
+        #     print(prediction)
+        #     break
+        logger.info("Starting ASR evaluation...")
+        results = self.inference_and_record()
+        logger.info("Evaluation completed successfully")
+        return results
 
 
 @hydra.main(config_path="config", config_name="base.yaml", version_base=None)

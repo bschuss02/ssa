@@ -117,7 +117,7 @@ class Phi4MultimodalASRModel(BaseMultimodalASRModel):
 
         return prompt
 
-    def _load_audio(self, audio_path: str) -> Tuple:
+    def _load_audio(self, audio_path: str) -> Tuple[np.ndarray, int]:
         """
         Load audio data and sample rate from a file.
         Args:

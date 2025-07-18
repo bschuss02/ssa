@@ -11,7 +11,7 @@ logger.info("Initializing inference model registry...")
 logger.info("Creating Phi-4 Multimodal Instruct model...")
 phi_4_multimodal_instruct = Phi4MultimodalASRModel(
     model_name="Phi-4-Multimodal-Instruct",
-    model_path="/Users/Benjamin/dev/ssa/models/phi-4-multimodal-instruct",
+    model_path="/Users/Benjamin/dev/ssa/models/Phi-4-multimodal-instruct",
 )
 logger.info("Phi-4 Multimodal Instruct model created successfully")
 
