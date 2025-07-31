@@ -32,6 +32,5 @@ class ASRModelBase(ABC):
         self,
         audio_arrays: List[np.ndarray],
         sample_rate: int,
-        prompt_messages: List[Dict[str, str]],
     ) -> List[str]:
         pass

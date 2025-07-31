@@ -17,6 +17,16 @@ class Phi4MultimodalInstruct(ASRModelBase):
         self.model = None
         self.processor = None
         self._log = getLogger(__name__)
+        self.prompt_messages = [
+            {
+                "role": "system",
+                "content": "You are an expert audio transcriptionist.",
+            },
+            {
+                "role": "user",
+                "content": "Transcribe the speech from this audio recording exactly as they are spoken. <|audio_1|>",
+            },
+        ]
 
     def load_model(self):
         self._log.info(f"Loading model {self.model_name} from {self.model_dir}")
@@ -35,9 +45,8 @@ class Phi4MultimodalInstruct(ASRModelBase):
         self,
         audio_arrays: List[np.ndarray],
         sample_rate: int,
-        prompt_messages: List[Dict[str, str]],
     ) -> List[str]:
-        prompt_string = self._build_prompt_string_from_messages(prompt_messages)
+        prompt_string = self._build_prompt_string_from_messages(self.prompt_messages)
         inputs = self._prepare_inputs(prompt_string, audio_arrays, sample_rate)
         outputs = self._generate_outputs(inputs)
         return outputs

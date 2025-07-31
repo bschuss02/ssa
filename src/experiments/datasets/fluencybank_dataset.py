@@ -42,6 +42,7 @@ class FluencybankDataset(ASRDatasetBase):
 
         self._dataset = Dataset.from_list(metadata_list)
         self._log.info(f"Successfully loaded dataset with {len(metadata_list)} samples")
+        self._save_to_cache(self._dataset)
         return self._dataset
 
     def _load_dataset_df(self):
