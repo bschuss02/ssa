@@ -24,7 +24,7 @@ class Phi4MultimodalInstruct(ASRModelBase):
             },
             {
                 "role": "user",
-                "content": "Transcribe the speech from this audio recording exactly as they are spoken. <|audio_1|>",
+                "content": "You are tasked with transcribing the speech from this audio recording. Transcribe the speech from this audio recording exactly as it is spoken. <|audio_1|>",
             },
         ]
 

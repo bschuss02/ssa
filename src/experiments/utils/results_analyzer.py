@@ -307,8 +307,8 @@ This directory contains comprehensive analysis and visualization results from th
         evaluation_results: List,
         config: Dict = None,
     ):
-        """Create evaluation metadata file with run information"""
-        # Collect metadata
+        """Create evaluation metadata file with comprehensive model performance comparisons"""
+        # Collect basic metadata
         metadata = {
             "evaluation_info": {
                 "date": date_folder,
@@ -334,13 +334,45 @@ This directory contains comprehensive analysis and visualization results from th
             },
         }
 
-        # Add performance metrics summary
+        # Add comprehensive model performance analysis
         if evaluation_results:
-            metrics = ["wer", "mer", "wil", "wip", "cer"]
-            metrics_summary = {}
+            metadata.update(self._create_model_performance_analysis(evaluation_results))
+
+        # Write metadata to file
+        with open(metadata_path, "w") as f:
+            json.dump(metadata, f, indent=2)
+
+        print(f"📋 Evaluation metadata saved to: {metadata_path}")
+
+    def _create_model_performance_analysis(self, evaluation_results: List) -> Dict:
+        """Create detailed model performance analysis and comparisons"""
+        # Group results by model
+        model_results = {}
+        for result in evaluation_results:
+            if result.model_name not in model_results:
+                model_results[result.model_name] = []
+            model_results[result.model_name].append(result)
+
+        # Calculate per-model metrics
+        metrics = ["wer", "mer", "wil", "wip", "cer"]
+        model_performance = {}
+
+        for model_name, results in model_results.items():
+            model_performance[model_name] = {
+                "total_samples": len(results),
+                "metrics": {},
+                "inference_time": {
+                    "total": sum(r.inference_time for r in results),
+                    "average": sum(r.inference_time for r in results) / len(results),
+                    "min": min(r.inference_time for r in results),
+                    "max": max(r.inference_time for r in results),
+                },
+            }
+
+            # Calculate metrics for each model
             for metric in metrics:
-                values = [getattr(r.metrics, metric) for r in evaluation_results]
-                metrics_summary[metric] = {
+                values = [getattr(r.metrics, metric) for r in results]
+                model_performance[model_name]["metrics"][metric] = {
                     "mean": sum(values) / len(values),
                     "min": min(values),
                     "max": max(values),
@@ -349,11 +381,129 @@ This directory contains comprehensive analysis and visualization results from th
                         / len(values)
                     )
                     ** 0.5,
+                    "median": sorted(values)[len(values) // 2],
+                    "q25": sorted(values)[len(values) // 4],
+                    "q75": sorted(values)[3 * len(values) // 4],
                 }
-            metadata["performance_metrics"] = metrics_summary
 
-        # Write metadata to file
-        with open(metadata_path, "w") as f:
-            json.dump(metadata, f, indent=2)
+        # Create model rankings for each metric
+        model_rankings = {}
+        for metric in metrics:
+            # Sort models by mean performance (lower is better for error metrics, higher is better for WIP)
+            if metric == "wip":
+                # For WIP, higher is better
+                sorted_models = sorted(
+                    model_performance.items(),
+                    key=lambda x: x[1]["metrics"][metric]["mean"],
+                    reverse=True,
+                )
+            else:
+                # For error metrics (wer, mer, wil, cer), lower is better
+                sorted_models = sorted(
+                    model_performance.items(),
+                    key=lambda x: x[1]["metrics"][metric]["mean"],
+                )
 
-        print(f"📋 Evaluation metadata saved to: {metadata_path}")
+            model_rankings[metric] = {
+                "ranking": [model_name for model_name, _ in sorted_models],
+                "scores": {
+                    model_name: data["metrics"][metric]["mean"]
+                    for model_name, data in sorted_models
+                },
+            }
+
+        # Create overall performance ranking (average rank across all metrics)
+        overall_ranks = {}
+        for model_name in model_performance.keys():
+            ranks = []
+            for metric in metrics:
+                rank = model_rankings[metric]["ranking"].index(model_name) + 1
+                ranks.append(rank)
+            overall_ranks[model_name] = sum(ranks) / len(ranks)
+
+        # Sort by overall rank (lower is better)
+        overall_ranking = sorted(overall_ranks.items(), key=lambda x: x[1])
+        overall_ranking_dict = {
+            "ranking": [model_name for model_name, _ in overall_ranking],
+            "average_ranks": {model_name: rank for model_name, rank in overall_ranking},
+        }
+
+        # Create performance comparisons between models
+        model_comparisons = {}
+        model_names = list(model_performance.keys())
+
+        for i, model1 in enumerate(model_names):
+            for j, model2 in enumerate(model_names):
+                if i < j:  # Only compare each pair once
+                    comparison_key = f"{model1}_vs_{model2}"
+                    model_comparisons[comparison_key] = {}
+
+                    for metric in metrics:
+                        score1 = model_performance[model1]["metrics"][metric]["mean"]
+                        score2 = model_performance[model2]["metrics"][metric]["mean"]
+
+                        if metric == "wip":
+                            # For WIP, higher is better
+                            improvement = (
+                                ((score1 - score2) / score2) * 100 if score2 != 0 else 0
+                            )
+                            better_model = model1 if score1 > score2 else model2
+                        else:
+                            # For error metrics, lower is better
+                            improvement = (
+                                ((score2 - score1) / score2) * 100 if score2 != 0 else 0
+                            )
+                            better_model = model1 if score1 < score2 else model2
+
+                        model_comparisons[comparison_key][metric] = {
+                            f"{model1}_score": score1,
+                            f"{model2}_score": score2,
+                            "improvement_percentage": improvement,
+                            "better_model": better_model,
+                            "difference": abs(score1 - score2),
+                        }
+
+        # Create statistical significance analysis
+        statistical_analysis = {}
+        for metric in metrics:
+            statistical_analysis[metric] = {
+                "best_model": model_rankings[metric]["ranking"][0],
+                "best_score": model_rankings[metric]["scores"][
+                    model_rankings[metric]["ranking"][0]
+                ],
+                "worst_model": model_rankings[metric]["ranking"][-1],
+                "worst_score": model_rankings[metric]["scores"][
+                    model_rankings[metric]["ranking"][-1]
+                ],
+                "score_range": model_rankings[metric]["scores"][
+                    model_rankings[metric]["ranking"][-1]
+                ]
+                - model_rankings[metric]["scores"][
+                    model_rankings[metric]["ranking"][0]
+                ],
+                "model_count": len(model_performance),
+            }
+
+        return {
+            "model_performance": model_performance,
+            "model_rankings": model_rankings,
+            "overall_ranking": overall_ranking_dict,
+            "model_comparisons": model_comparisons,
+            "statistical_analysis": statistical_analysis,
+            "performance_summary": {
+                "best_overall_model": overall_ranking_dict["ranking"][0],
+                "best_model_per_metric": {
+                    metric: ranking["ranking"][0]
+                    for metric, ranking in model_rankings.items()
+                },
+                "performance_gaps": {
+                    metric: {
+                        "best_to_worst_gap": ranking["scores"][ranking["ranking"][-1]]
+                        - ranking["scores"][ranking["ranking"][0]],
+                        "top_2_gap": ranking["scores"][ranking["ranking"][1]]
+                        - ranking["scores"][ranking["ranking"][0]],
+                    }
+                    for metric, ranking in model_rankings.items()
+                },
+            },
+        }
