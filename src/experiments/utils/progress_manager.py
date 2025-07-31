@@ -70,9 +70,14 @@ class ProgressManager:
             self.progress.advance(self.dataset_task)
 
     def advance_sample(self) -> None:
-        """Advance the sample progress bar."""
+        """Advance the sample progress bar by 1."""
         if self.sample_task is not None:
             self.progress.advance(self.sample_task)
+
+    def advance_sample_by(self, amount: int) -> None:
+        """Advance the sample progress bar by a specific amount."""
+        if self.sample_task is not None:
+            self.progress.advance(self.sample_task, advance=amount)
 
     def finish_dataset_processing(self) -> None:
         """Remove the dataset progress task."""

@@ -68,6 +68,14 @@ class ASREvaluator:
             else:
                 logger.info(f"✓ Dataset '{dataset_name}': {total_samples} samples")
 
+        # Log batch processing configuration
+        if self.cfg.batch_size is not None and self.cfg.batch_size > 1:
+            logger.info(
+                f"✓ Batch processing enabled with batch size: {self.cfg.batch_size}"
+            )
+        else:
+            logger.info("✓ Processing samples one by one")
+
         logger.info("✓ Setup validation completed")
 
     def _process_single_sample(
@@ -115,6 +123,79 @@ class ASREvaluator:
             logger.error(f"Error processing audio {audio_path}: {str(e)}")
             return None
 
+    def _process_batch(
+        self,
+        model: BaseMultimodalASRModel,
+        items: List[dict],
+        dataset_name: str,
+    ) -> List[EvaluationResultRow]:
+        """
+        Process a batch of audio samples and return evaluation results.
+
+        Args:
+            model: The ASR model to use for transcription
+            items: List of dataset items containing audio and reference text
+            dataset_name: Name of the dataset being processed
+
+        Returns:
+            List of EvaluationResultRow objects
+        """
+        results = []
+
+        # Prepare batch inputs
+        audio_arrays = []
+        sample_rates = []
+        references = []
+        audio_paths = []
+
+        for item in items:
+            audio_path = item["audio"]["path"]
+            sample_rate = item["audio"]["sampling_rate"]
+            audio_array = np.array(item["audio"]["array"])
+            reference = item["unannotated_text"]
+
+            audio_arrays.append(audio_array)
+            sample_rates.append(sample_rate)
+            references.append(reference)
+            audio_paths.append(audio_path)
+
+        try:
+            # Get model predictions for the batch
+            predictions = model.transcribe_batch(
+                audio_arrays=audio_arrays,
+                sample_rates=sample_rates,
+            )
+
+            # Process each prediction
+            for i, (prediction, reference, audio_path) in enumerate(
+                zip(predictions, references, audio_paths)
+            ):
+                # Calculate metrics
+                metrics = calculate_asr_metrics(reference, prediction)
+
+                # Create result row
+                result = EvaluationResultRow(
+                    model_name=model.model_name,
+                    dataset_name=dataset_name,
+                    metrics=metrics,
+                )
+
+                logger.debug(
+                    f"Batch sample {i + 1} processed: WER={metrics.wer:.4f}, CER={metrics.cer:.4f}"
+                )
+
+                results.append(result)
+
+        except Exception as e:
+            logger.error(f"Error processing batch: {str(e)}")
+            # Fall back to individual processing
+            for item in items:
+                result = self._process_single_sample(model, item, dataset_name)
+                if result is not None:
+                    results.append(result)
+
+        return results
+
     def _process_dataset(
         self,
         model: BaseMultimodalASRModel,
@@ -150,13 +231,35 @@ class ASREvaluator:
         # Start sample progress tracking
         progress_manager.start_sample_processing(dataset_name, actual_size)
 
-        for item in dataset:
-            result = self._process_single_sample(model, item, dataset_name)
-            if result is not None:
-                results.append(result)
-                print(result)  # Print results as they're generated
+        # Convert dataset to list for batch processing
+        dataset_items = list(dataset)
 
-            progress_manager.advance_sample()
+        if self.cfg.batch_size is not None and self.cfg.batch_size > 1:
+            # Process in batches
+            logger.info(
+                f"Processing {len(dataset_items)} samples in batches of {self.cfg.batch_size}"
+            )
+
+            for i in range(0, len(dataset_items), self.cfg.batch_size):
+                batch_items = dataset_items[i : i + self.cfg.batch_size]
+                batch_results = self._process_batch(model, batch_items, dataset_name)
+
+                for result in batch_results:
+                    results.append(result)
+                    print(result)  # Print results as they're generated
+
+                # Advance progress by batch size
+                progress_manager.advance_sample_by(len(batch_items))
+
+        else:
+            # Process one by one
+            for item in dataset_items:
+                result = self._process_single_sample(model, item, dataset_name)
+                if result is not None:
+                    results.append(result)
+                    print(result)  # Print results as they're generated
+
+                progress_manager.advance_sample()
 
         progress_manager.finish_sample_processing()
         return results

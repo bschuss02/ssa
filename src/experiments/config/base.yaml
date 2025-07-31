@@ -5,3 +5,4 @@ datasets_to_evaluate:
 max_samples_per_dataset: 5
 save_samples: true
 output_dir: /Users/Benjamin/dev/ssa/output/eval
+batch_size: 2 # Process 2 samples at a time, set to null for one-by-one processing
