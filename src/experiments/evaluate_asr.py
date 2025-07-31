@@ -7,6 +7,7 @@ and provides detailed analysis including WER, CER, and other ASR quality metrics
 """
 
 import logging
+import sys
 from typing import List
 
 import hydra
@@ -32,14 +33,40 @@ from experiments.utils.inference_models.inference_model_registry import (
     inference_model_registry,
 )
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(message)s",
-    datefmt="[%X]",
-    handlers=[RichHandler(rich_tracebacks=True)],
-)
-logger = logging.getLogger(__name__)
+
+# Configure logging with more explicit setup
+def setup_logging():
+    # Clear any existing handlers
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(message)s",
+        datefmt="[%X]",
+        handlers=[RichHandler(rich_tracebacks=True)],
+        force=True,  # Force reconfiguration
+    )
+
+    # Ensure our logger is set to INFO level
+    _log = logging.getLogger(__name__)
+    _log.setLevel(logging.INFO)
+
+    # Add a console handler to ensure output goes to terminal
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.INFO)
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    console_handler.setFormatter(formatter)
+    _log.addHandler(console_handler)
+
+    return _log
+
+
+_log = setup_logging()
 
 
 class EvaluationMetrics(BaseModel):
@@ -68,7 +95,7 @@ class ASREvaluator:
         self.datasets = [
             dataset_registry[dataset_name] for dataset_name in self.dataset_names
         ]
-        logger.info(
+        _log.info(
             f"Initialized ASR Evaluator with {len(self.models)} models and {len(self.datasets)} datasets"
         )
 
@@ -88,7 +115,7 @@ class ASREvaluator:
             )
 
             for model_idx, model in enumerate(self.models):
-                logger.info(f"Loading model: {model.model_name}")
+                _log.info(f"Loading model: {model.model_name}")
                 model.load_model()
 
                 # Progress bar for datasets within each model
@@ -98,15 +125,13 @@ class ASREvaluator:
                 )
 
                 for dataset_idx, dataset in enumerate(self.datasets):
-                    logger.info(
-                        f"Processing dataset: {self.dataset_names[dataset_idx]}"
-                    )
+                    _log.info(f"Processing dataset: {self.dataset_names[dataset_idx]}")
 
                     if self.cfg.max_samples_per_dataset is not None:
                         dataset = dataset.select(
                             range(self.cfg.max_samples_per_dataset)
                         )
-                        logger.info(
+                        _log.info(
                             f"Limited to {self.cfg.max_samples_per_dataset} samples"
                         )
 
@@ -120,7 +145,7 @@ class ASREvaluator:
                         audio_path = item["audio"]["path"]
                         sample_rate = item["audio"]["sampling_rate"]
                         audio_array = np.array(item["audio"]["array"])
-                        logger.debug(f"Processing audio: {audio_path}")
+                        _log.debug(f"Processing audio: {audio_path}")
 
                         try:
                             prediction = model.transcribe(
@@ -134,9 +159,19 @@ class ASREvaluator:
                             wil = jiwer.wil(transcription, prediction)
                             wip = jiwer.wip(transcription, prediction)
                             cer = jiwer.cer(transcription, prediction)
-                            visualize_alignment = jiwer.visualize_alignment(
-                                transcription, prediction
-                            )
+
+                            # Fix: Use jiwer.visualize_alignment correctly - it takes reference and hypothesis directly
+                            try:
+                                visualize_alignment = jiwer.visualize_alignment(
+                                    transcription, prediction
+                                )
+                            except Exception as alignment_error:
+                                _log.warning(
+                                    f"Failed to create alignment visualization: {alignment_error}"
+                                )
+                                visualize_alignment = (
+                                    f"Alignment failed: {alignment_error}"
+                                )
 
                             metrics = EvaluationMetrics(
                                 wer=wer,
@@ -146,23 +181,20 @@ class ASREvaluator:
                                 cer=cer,
                                 visualize_alignment=visualize_alignment,
                             )
-
-                            results.append(
-                                EvaluationResultRow(
-                                    model_name=model.model_name,
-                                    dataset_name=self.dataset_names[dataset_idx],
-                                    metrics=metrics,
-                                )
+                            evaluation_result_row = EvaluationResultRow(
+                                model_name=model.model_name,
+                                dataset_name=self.dataset_names[dataset_idx],
+                                metrics=metrics,
                             )
+                            print(evaluation_result_row)
+                            results.append(evaluation_result_row)
 
-                            logger.debug(
+                            _log.debug(
                                 f"Sample {item_idx + 1}: WER={wer:.4f}, CER={cer:.4f}"
                             )
 
                         except Exception as e:
-                            logger.error(
-                                f"Error processing audio {audio_path}: {str(e)}"
-                            )
+                            _log.error(f"Error processing audio {audio_path}: {str(e)}")
 
                         progress.advance(sample_task)
 
@@ -171,9 +203,9 @@ class ASREvaluator:
 
                 progress.remove_task(dataset_task)
                 progress.advance(model_task)
-                logger.info(f"Completed processing for model: {model.model_name}")
+                _log.info(f"Completed processing for model: {model.model_name}")
 
-        logger.info(f"Completed inference and recording. Total results: {len(results)}")
+        _log.info(f"Completed inference and recording. Total results: {len(results)}")
         return results
 
     def evaluate(self):
@@ -189,14 +221,18 @@ class ASREvaluator:
         #     )
         #     print(prediction)
         #     break
-        logger.info("Starting ASR evaluation...")
+        _log.info("Starting ASR evaluation...")
         results = self.inference_and_record()
-        logger.info("Evaluation completed successfully")
+        _log.info("Evaluation completed successfully")
         return results
 
 
 @hydra.main(config_path="config", config_name="base.yaml", version_base=None)
 def main(cfg: DictConfig):
+    # Ensure logging is set up before Hydra processing
+    _log = setup_logging()
+    _log.info("Starting ASR evaluation script...")
+
     cfg = ASREvaluatorConfig(**cfg)
     evaluator = ASREvaluator(cfg)
     evaluator.evaluate()
