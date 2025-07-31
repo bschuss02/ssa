@@ -7,7 +7,6 @@ class EvaluationMetrics(BaseModel):
     wil: float
     wip: float
     cer: float
-    visualize_alignment: str
 
 
 class EvaluationResult(BaseModel):

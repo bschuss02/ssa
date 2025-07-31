@@ -1,3 +1,4 @@
+import time
 from logging import getLogger
 from pathlib import Path
 from typing import Dict, List
@@ -16,17 +17,22 @@ from experiments.utils.progress_manager import ProgressManager
 
 class Evaluator:
     evaluation_results: List[EvaluationResult]
+    active_model_name: str
+    active_dataset_name: str
 
     def __init__(self, cfg: EvaluationConfig):
         self.cfg = cfg
         self._log = getLogger(__name__)
         self.evaluation_results = []
+        self.active_model_name = None
+        self.active_dataset_name = None
 
     def evaluate(self):
         """Entrypoint for the evaluation process"""
         with ProgressManager() as progress:
             progress.start_model_processing(len(self.cfg.models))
             for model_name, model_path in self.cfg.models.items():
+                self.active_model_name = model_name
                 model = self.load_model(model_name, model_path)
                 self._evaluate_model(model, progress)
                 progress.advance_model()
@@ -35,6 +41,7 @@ class Evaluator:
         """Iterate over all datasets and evaluate the model on each"""
         for dataset_name, dataset_path in self.cfg.datasets.items():
             progress.start_dataset_processing(model.model_name, len(self.cfg.datasets))
+            self.active_dataset_name = dataset_name
             dataset = self._load_dataset(dataset_name, dataset_path)
             self._evaluate_dataset(model, dataset, progress)
             progress.advance_dataset()
@@ -54,17 +61,34 @@ class Evaluator:
     def _evaluate_batch(
         self, model: ASRModelBase, batch: Dict
     ) -> List[EvaluationResult]:
+        start_time = time.time()
         audio_arrays = [np.array(audio_dict["array"]) for audio_dict in batch["audio"]]
         sampling_rate = batch["audio"][0]["sampling_rate"]
         ground_truth_transcriptions = batch["unannotated_text"]
         predicted_transcriptions = model.transcribe(audio_arrays, sampling_rate)
         self._log.info(predicted_transcriptions)
-        metrics = calculate_metrics(
+        metrics_batch = calculate_metrics(
             predicted_transcriptions, ground_truth_transcriptions
         )
-        self._log.info(metrics)
+        inference_time = time.time() - start_time
+        self._log.info(metrics_batch)
+        evaluation_results = []
+        for ground_truth_transcriptions, predicted_transcriptions, metrics in zip(
+            ground_truth_transcriptions,
+            predicted_transcriptions,
+            metrics_batch,
+        ):
+            evaluation_result = EvaluationResult(
+                model_name=model.model_name,
+                dataset_name=self.active_dataset_name,
+                ground_truth_transcript=ground_truth_transcriptions,
+                predicted_transcript=predicted_transcriptions,
+                metrics=metrics,
+                inference_time=inference_time,
+            )
+            evaluation_results.append(evaluation_result)
 
-        return []
+        return evaluation_results
 
     def load_model(self, model_name: str, model_path: Path) -> ASRModelBase:
         model_class = model_registry[model_name]
