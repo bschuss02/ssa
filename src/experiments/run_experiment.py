@@ -3,12 +3,14 @@ from omegaconf import DictConfig
 
 from experiments.config.EvaluationConfig import EvaluationConfig
 from experiments.evaluation.evaluator import Evaluator
+from experiments.utils.configure_logging import configure_logging
 
 
 @hydra.main(config_path="config", config_name="config.yaml", version_base=None)
 def run_experiment(cfg: DictConfig):
-    cfg = EvaluationConfig(**cfg)
-    evaluator = Evaluator(cfg)
+    evaluation_cfg = EvaluationConfig(**cfg)
+    configure_logging(evaluation_cfg)
+    evaluator = Evaluator(evaluation_cfg)
     evaluator.evaluate()
 
 

@@ -38,27 +38,28 @@ def configure_logging(config: EvaluationConfig) -> None:
     # Create handlers list
     handlers = []
 
-    # Console handler
-    if config.logging.use_rich_logging:
-        try:
-            console_handler = RichHandler(
-                rich_tracebacks=True, show_time=True, show_path=False
-            )
-            console_handler.setLevel(log_level)
-            handlers.append(console_handler)
-        except ImportError:
-            # Fallback to standard handler if rich is not available
+    # Console handler (only if show_terminal_logs is True)
+    if config.logging.show_terminal_logs:
+        if config.logging.use_rich_logging:
+            try:
+                console_handler = RichHandler(
+                    rich_tracebacks=True, show_time=True, show_path=False
+                )
+                console_handler.setLevel(log_level)
+                handlers.append(console_handler)
+            except ImportError:
+                # Fallback to standard handler if rich is not available
+                console_handler = logging.StreamHandler(sys.stdout)
+                console_handler.setLevel(log_level)
+                formatter = logging.Formatter(config.logging.log_format)
+                console_handler.setFormatter(formatter)
+                handlers.append(console_handler)
+        else:
             console_handler = logging.StreamHandler(sys.stdout)
             console_handler.setLevel(log_level)
             formatter = logging.Formatter(config.logging.log_format)
             console_handler.setFormatter(formatter)
             handlers.append(console_handler)
-    else:
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setLevel(log_level)
-        formatter = logging.Formatter(config.logging.log_format)
-        console_handler.setFormatter(formatter)
-        handlers.append(console_handler)
 
     # File handler (if log_file is specified)
     if config.logging.log_file is not None:
@@ -85,6 +86,12 @@ def configure_logging(config: EvaluationConfig) -> None:
         handlers=handlers,
         force=True,
     )
+
+    # Ensure all existing loggers are properly configured
+    for logger_name in logging.root.manager.loggerDict:
+        logger = logging.getLogger(logger_name)
+        logger.handlers.clear()  # Remove any existing handlers
+        logger.propagate = True  # Ensure propagation to root logger
 
 
 def get_logger(name: Optional[str] = None) -> logging.Logger:

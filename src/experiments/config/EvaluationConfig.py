@@ -20,6 +20,9 @@ class LoggerConfig(BaseModel):
     use_rich_logging: bool = Field(
         default=True, description="Whether to use rich formatting for console output"
     )
+    show_terminal_logs: bool = Field(
+        default=True, description="Whether to show logs in the terminal/console"
+    )
 
 
 class EvaluationConfig(BaseModel):
