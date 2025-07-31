@@ -1,0 +1,22 @@
+defaults:
+  - _self_
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+hydra:
+  output_subdir: null
+  run:
+    dir: .
+
+models:
+  phi_4_multimodal_instruct: /Users/Benjamin/dev/ssa/models/Phi-4-multimodal-instruct
+datasets:
+  fluencybank: /Users/Benjamin/dev/ssa/data/fluencybank/processed
+max_samples_per_dataset: 10
+batch_size: 2
+output_dir: /Users/Benjamin/dev/ssa/output
+logging:
+  log_level: INFO
+  log_file: /Users/Benjamin/dev/ssa/output/logs/experiments.log
+  log_format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  use_rich_logging: true

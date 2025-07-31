@@ -1,9 +1,15 @@
+from logging import getLogger
+
 from experiments.config.EvaluationConfig import EvaluationConfig
+from experiments.utils.configure_logging import configure_logging
+
+_log = getLogger(__name__)
 
 
 class Evaluator:
     def __init__(self, cfg: EvaluationConfig):
         self.cfg = cfg
+        configure_logging(self.cfg)
 
     def evaluate(self):
         pass

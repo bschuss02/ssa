@@ -6,12 +6,11 @@ This module provides centralized logging setup for the experiments pipeline.
 
 import logging
 import sys
-from pathlib import Path
 from typing import Optional
 
 from rich.logging import RichHandler
 
-from ..config.EvaluationConfig import EvaluationConfig
+from experiments.config.EvaluationConfig import EvaluationConfig
 
 
 def configure_logging(config: EvaluationConfig) -> None:

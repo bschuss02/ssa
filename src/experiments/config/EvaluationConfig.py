@@ -23,10 +23,10 @@ class LoggerConfig(BaseModel):
 
 
 class EvaluationConfig(BaseModel):
-    models: Dict[str, Path] = Field(
+    models: Dict[str, str] = Field(
         description="A dictionary of model names and their paths"
     )
-    datasets: Dict[str, Path] = Field(
+    datasets: Dict[str, str] = Field(
         description="A dictionary of dataset names and their paths"
     )
     max_samples_per_dataset: int = Field(
