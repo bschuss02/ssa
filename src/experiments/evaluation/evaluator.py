@@ -116,7 +116,10 @@ class Evaluator:
 
         self._log.info(predicted_transcriptions)
         metrics_batch = calculate_metrics(
-            predicted_transcriptions, ground_truth_transcriptions
+            predicted_transcriptions,
+            ground_truth_transcriptions,
+            self.cfg.remove_punctuation,
+            self.cfg.make_lowercase,
         )
         inference_time = time.time() - start_time
         self._log.info(metrics_batch)

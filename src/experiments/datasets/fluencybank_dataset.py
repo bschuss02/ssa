@@ -48,7 +48,9 @@ class FluencybankDataset(ASRDatasetBase):
     def _load_dataset_df(self):
         df_path = self.dataset_path / "fluencybank_segments.parquet"
         df = pl.read_parquet(df_path)
-        df = df.head(self.cfg.max_samples_per_dataset)
+        # If max_samples_per_dataset is 0, use the entire dataset
+        if self.cfg.max_samples_per_dataset > 0:
+            df = df.head(self.cfg.max_samples_per_dataset)
         return df
 
     def _get_return_dtype(self, df: pl.DataFrame) -> pl.Struct:

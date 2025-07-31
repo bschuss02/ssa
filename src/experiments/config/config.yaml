@@ -13,13 +13,15 @@ models:
 datasets:
   fluencybank: /Users/Benjamin/dev/ssa/data/fluencybank/processed
 max_samples_per_dataset: 10
-batch_size: 4
+batch_size: 10
 output_dir: /Users/Benjamin/dev/ssa/output
 results_dir: /Users/Benjamin/dev/ssa/output/results
 dataset_cache_dir: /Users/Benjamin/dev/ssa/output/dataset_cache
 asr_cache_dir: /Users/Benjamin/dev/ssa/output/asr_cache
 use_asr_cache: true
 load_datasets_from_cache: false
+remove_punctuation: true
+make_lowercase: true
 logging:
   log_level: INFO
   log_file: /Users/Benjamin/dev/ssa/output/logs/experiments.log

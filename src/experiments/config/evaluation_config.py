@@ -48,6 +48,14 @@ class EvaluationConfig(BaseModel):
     load_datasets_from_cache: bool = Field(
         description="Whether to load datasets from cache"
     )
+    remove_punctuation: bool = Field(
+        default=False,
+        description="Whether to remove punctuation from ground truth and predicted transcripts before calculating metrics",
+    )
+    make_lowercase: bool = Field(
+        default=False,
+        description="Whether to convert ground truth and predicted transcripts to lowercase before calculating metrics",
+    )
     # Logging configuration
     logging: LoggerConfig = Field(
         default_factory=LoggerConfig, description="Logging configuration settings"
