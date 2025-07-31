@@ -500,8 +500,12 @@ This directory contains comprehensive analysis and visualization results from th
                     metric: {
                         "best_to_worst_gap": ranking["scores"][ranking["ranking"][-1]]
                         - ranking["scores"][ranking["ranking"][0]],
-                        "top_2_gap": ranking["scores"][ranking["ranking"][1]]
-                        - ranking["scores"][ranking["ranking"][0]],
+                        "top_2_gap": (
+                            ranking["scores"][ranking["ranking"][1]]
+                            - ranking["scores"][ranking["ranking"][0]]
+                            if len(ranking["ranking"]) > 1
+                            else 0.0
+                        ),
                     }
                     for metric, ranking in model_rankings.items()
                 },
