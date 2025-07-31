@@ -54,9 +54,14 @@ class Evaluator:
         progress: ProgressManager,
     ):
         """Evaluate a single dataset. Called within _evaluate_model"""
+        progress.start_sample_processing(self.active_dataset_name, len(dataset))
+
         for batch in dataset.iter(batch_size=self.cfg.batch_size):
             results = self._evaluate_batch(model, batch)
             self.evaluation_results.extend(results)
+            progress.advance_sample_by(len(batch["audio"]))
+
+        progress.finish_sample_processing()
 
     def _evaluate_batch(
         self, model: ASRModelBase, batch: Dict
