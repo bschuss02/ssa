@@ -80,7 +80,7 @@ class Evaluator:
         for batch in dataset.iter(batch_size=self.cfg.batch_size):
             results = self._evaluate_batch(model, batch)
             self.evaluation_results.extend(results)
-            progress.advance_sample_by(len(batch["audio"]))
+            progress.advance_sample_by(len(batch["clip_audio_file"]))
 
         progress.finish_sample_processing()
 

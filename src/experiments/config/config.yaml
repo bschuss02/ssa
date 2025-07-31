@@ -13,8 +13,8 @@ models:
   # phi_4_with_stutter_prompt: /Users/Benjamin/dev/ssa/models/Phi-4-multimodal-instruct
 datasets:
   fluencybank: /Users/Benjamin/dev/ssa/data/fluencybank/processed
-max_samples_per_dataset: 10
-batch_size: 7
+max_samples_per_dataset: 20
+batch_size: 10
 output_dir: /Users/Benjamin/dev/ssa/output
 results_dir: /Users/Benjamin/dev/ssa/output/results
 dataset_cache_dir: /Users/Benjamin/dev/ssa/output/dataset_cache
