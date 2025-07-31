@@ -442,6 +442,15 @@ wheels = [
 ]
 
 [[package]]
+name = "diskcache"
+version = "5.6.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/3f/21/1c1ffc1a039ddcc459db43cc108658f32c57d271d7289a2794e401d0fdb6/diskcache-5.6.3.tar.gz", hash = "sha256:2c3a3fa2743d8535d832ec61c2054a1641f41775aa7c556758a109941e33e4fc", size = 67916, upload_time = "2023-08-31T06:12:00.316Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3f/27/4570e78fc0bf5ea0ca45eb1de3818a23787af9b390c0b0a0033a1b8236f9/diskcache-5.6.3-py3-none-any.whl", hash = "sha256:5e31b2d5fbad117cc363ebaf6b689474db18a1f6438bc82358b024abd4c2ca19", size = 45550, upload_time = "2023-08-31T06:11:58.822Z" },
+]
+
+[[package]]
 name = "executing"
 version = "2.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2180,6 +2189,7 @@ dependencies = [
     { name = "accelerate" },
     { name = "backoff" },
     { name = "datasets" },
+    { name = "diskcache" },
     { name = "huggingface-hub", extra = ["cli"] },
     { name = "hydra-core" },
     { name = "ipykernel" },
@@ -2212,6 +2222,7 @@ requires-dist = [
     { name = "accelerate", specifier = ">=1.8.1" },
     { name = "backoff", specifier = ">=2.2.1" },
     { name = "datasets", specifier = ">=3.6.0" },
+    { name = "diskcache", specifier = ">=5.6.3" },
     { name = "huggingface-hub", extras = ["cli"], specifier = ">=0.33.1" },
     { name = "hydra-core", specifier = ">=1.3.2" },
     { name = "ipykernel", specifier = ">=6.29.5" },

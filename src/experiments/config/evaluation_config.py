@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Literal
+from typing import Dict, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -10,7 +10,7 @@ class LoggerConfig(BaseModel):
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
         default="INFO", description="The logging level to use"
     )
-    log_file: Path | None = Field(
+    log_file: Optional[Path] = Field(
         default=None, description="Path to log file. If None, logs only to console"
     )
     log_format: str = Field(
@@ -41,6 +41,7 @@ class EvaluationConfig(BaseModel):
         description="The directory to save the evaluation results"
     )
     asr_cache_dir: Path = Field(description="The directory to save the ASR cache")
+    use_asr_cache: bool = Field(description="Whether to use the ASR cache")
     dataset_cache_dir: Path = Field(
         description="The directory to save the dataset cache"
     )

@@ -10,6 +10,7 @@ from experiments.config.evaluation_config import EvaluationConfig
 from experiments.datasets.dataset_registry import dataset_registry
 from experiments.inference_models.asr_model_base import ASRModelBase
 from experiments.inference_models.model_registry import model_registry
+from experiments.utils.asr_cache import ASRCache
 from experiments.utils.calculate_metrics import calculate_metrics
 from experiments.utils.evaluation_result import EvaluationResult
 from experiments.utils.progress_manager import ProgressManager
@@ -27,6 +28,14 @@ class Evaluator:
         self.active_model_name = None
         self.active_dataset_name = None
 
+        # Initialize ASR cache if enabled
+        if self.cfg.use_asr_cache:
+            self.asr_cache = ASRCache(self.cfg.asr_cache_dir)
+            self._log.info(f"Initialized ASR cache at {self.cfg.asr_cache_dir}")
+        else:
+            self.asr_cache = None
+            self._log.info("ASR cache disabled")
+
     def evaluate(self):
         """Entrypoint for the evaluation process"""
         with ProgressManager() as progress:
@@ -36,6 +45,12 @@ class Evaluator:
                 model = self.load_model(model_name, model_path)
                 self._evaluate_model(model, progress)
                 progress.advance_model()
+
+        # Log cache statistics if cache is enabled
+        if self.asr_cache is not None:
+            cache_stats = self.asr_cache.get_stats()
+            self._log.info(f"ASR Cache Statistics: {cache_stats}")
+            self.asr_cache.close()
 
         # Analyze and visualize results
         self._log.info("Evaluation complete. Starting analysis and visualization...")
@@ -74,7 +89,31 @@ class Evaluator:
         audio_arrays = [np.array(audio_dict["array"]) for audio_dict in batch["audio"]]
         sampling_rate = batch["audio"][0]["sampling_rate"]
         ground_truth_transcriptions = batch["unannotated_text"]
-        predicted_transcriptions = model.transcribe(audio_arrays, sampling_rate)
+
+        # Check cache for existing transcriptions if cache is enabled
+        cached_transcriptions = None
+        if self.asr_cache is not None:
+            cached_transcriptions = self.asr_cache.get(
+                model.model_name, audio_arrays, sampling_rate
+            )
+
+        if cached_transcriptions is not None:
+            self._log.info(f"Cache hit for {len(audio_arrays)} audio samples")
+            predicted_transcriptions = cached_transcriptions
+        else:
+            self._log.info(
+                f"Cache miss for {len(audio_arrays)} audio samples, running inference"
+            )
+            predicted_transcriptions = model.transcribe(audio_arrays, sampling_rate)
+            # Cache the results for future use if cache is enabled
+            if self.asr_cache is not None:
+                self.asr_cache.set(
+                    model.model_name,
+                    audio_arrays,
+                    sampling_rate,
+                    predicted_transcriptions,
+                )
+
         self._log.info(predicted_transcriptions)
         metrics_batch = calculate_metrics(
             predicted_transcriptions, ground_truth_transcriptions
@@ -82,7 +121,7 @@ class Evaluator:
         inference_time = time.time() - start_time
         self._log.info(metrics_batch)
         evaluation_results = []
-        for ground_truth_transcriptions, predicted_transcriptions, metrics in zip(
+        for ground_truth_transcription, predicted_transcription, metrics in zip(
             ground_truth_transcriptions,
             predicted_transcriptions,
             metrics_batch,
@@ -90,14 +129,33 @@ class Evaluator:
             evaluation_result = EvaluationResult(
                 model_name=model.model_name,
                 dataset_name=self.active_dataset_name,
-                ground_truth_transcript=ground_truth_transcriptions,
-                predicted_transcript=predicted_transcriptions,
+                ground_truth_transcript=ground_truth_transcription,
+                predicted_transcript=predicted_transcription,
                 metrics=metrics,
                 inference_time=inference_time,
             )
             evaluation_results.append(evaluation_result)
 
         return evaluation_results
+
+    def clear_cache(self):
+        """Clear the ASR cache."""
+        if self.asr_cache is not None:
+            self.asr_cache.clear()
+            self._log.info("ASR cache cleared")
+        else:
+            self._log.warning("ASR cache is not enabled")
+
+    def get_cache_stats(self) -> Dict:
+        """Get cache statistics.
+
+        Returns:
+            Dictionary containing cache statistics
+        """
+        if self.asr_cache is not None:
+            return self.asr_cache.get_stats()
+        else:
+            return {"error": "ASR cache is not enabled"}
 
     def load_model(self, model_name: str, model_path: Path) -> ASRModelBase:
         model_class = model_registry[model_name]
