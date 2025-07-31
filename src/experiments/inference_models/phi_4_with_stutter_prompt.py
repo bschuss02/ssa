@@ -13,6 +13,6 @@ class Phi4WithStutterPrompt(Phi4MultimodalInstruct):
             },
             {
                 "role": "user",
-                "content": "You are tasked with transcribing the speech from this audio recording. The person speaking has a stutter. There may be repetitions of sounds, pauses between words, and other stutter-like behaviors. Transcribe the speech as accurately as possible. <|audio_1|>",
+                "content": "You are tasked with transcribing the speech from this audio recording. The person speaking has a stutter. There may be repetitions of sounds, pauses between words, prolongations of sounds, blocks, and other stutter-like sounds. Ignore these disfluencies and transcribe the speech accurately. <|audio_1|>",
             },
         ]
