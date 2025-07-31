@@ -57,9 +57,9 @@ class ASREvaluator:
                 raise ValueError(f"Dataset '{dataset_name}' not found in registry")
             logger.info(f"✓ Dataset '{dataset_name}' found in registry")
 
-        # Log dataset sizes
+        # Log dataset sizes (this will trigger lazy loading of metadata only)
         for dataset_name, dataset in zip(self.dataset_names, self.datasets):
-            total_samples = len(dataset)
+            total_samples = len(dataset)  # This only loads metadata, not audio files
             if self.cfg.max_samples_per_dataset:
                 actual_samples = min(total_samples, self.cfg.max_samples_per_dataset)
                 logger.info(
@@ -136,13 +136,19 @@ class ASREvaluator:
         """
         results = []
 
+        # Get dataset size for progress tracking
+        dataset_size = len(dataset)
+
         # Limit dataset size if specified
         if self.cfg.max_samples_per_dataset is not None:
+            actual_size = min(dataset_size, self.cfg.max_samples_per_dataset)
             dataset = dataset.select(range(self.cfg.max_samples_per_dataset))
             logger.info(f"Limited to {self.cfg.max_samples_per_dataset} samples")
+        else:
+            actual_size = dataset_size
 
         # Start sample progress tracking
-        progress_manager.start_sample_processing(dataset_name, len(dataset))
+        progress_manager.start_sample_processing(dataset_name, actual_size)
 
         for item in dataset:
             result = self._process_single_sample(model, item, dataset_name)
