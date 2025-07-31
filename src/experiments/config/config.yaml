@@ -15,6 +15,8 @@ datasets:
 max_samples_per_dataset: 10
 batch_size: 2
 output_dir: /Users/Benjamin/dev/ssa/output
+dataset_cache_dir: /Users/Benjamin/dev/ssa/output/dataset_cache
+max_workers: 4
 logging:
   log_level: INFO
   log_file: /Users/Benjamin/dev/ssa/output/logs/experiments.log

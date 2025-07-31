@@ -26,10 +26,10 @@ class LoggerConfig(BaseModel):
 
 
 class EvaluationConfig(BaseModel):
-    models: Dict[str, str] = Field(
+    models: Dict[str, Path] = Field(
         description="A dictionary of model names and their paths"
     )
-    datasets: Dict[str, str] = Field(
+    datasets: Dict[str, Path] = Field(
         description="A dictionary of dataset names and their paths"
     )
     max_samples_per_dataset: int = Field(
@@ -37,6 +37,12 @@ class EvaluationConfig(BaseModel):
     )
     batch_size: int = Field(description="The batch size to use for inference")
     output_dir: Path = Field(description="The directory to save the evaluation results")
+    dataset_cache_dir: Path = Field(
+        description="The directory to save the dataset cache"
+    )
+    max_workers: int = Field(
+        default=4, description="Maximum number of workers for loading audio dataset"
+    )
 
     # Logging configuration
     logging: LoggerConfig = Field(

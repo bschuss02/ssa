@@ -6,7 +6,6 @@ import numpy as np
 from transformers import AutoModelForCausalLM, AutoProcessor, GenerationConfig
 
 from experiments.inference_models.asr_model_base import ASRModelBase
-from experiments.utils.evaluation_result import EvaluationResult
 
 
 class Phi4MultimodalInstruct(ASRModelBase):
