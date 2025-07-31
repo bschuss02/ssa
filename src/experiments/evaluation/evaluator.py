@@ -2,7 +2,7 @@ import concurrent
 import time
 from logging import getLogger
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import librosa
 import numpy as np
@@ -78,9 +78,14 @@ class Evaluator:
         progress.start_sample_processing(self.active_dataset_name, len(dataset))
 
         for batch in dataset.iter(batch_size=self.cfg.batch_size):
-            results = self._evaluate_batch(model, batch)
-            self.evaluation_results.extend(results)
-            progress.advance_sample_by(len(batch["clip_audio_file"]))
+            try:
+                results = self._evaluate_batch(model, batch)
+                self.evaluation_results.extend(results)
+                progress.advance_sample_by(len(batch["clip_audio_file"]))
+            except Exception as e:
+                self._log.error(f"Error evaluating batch: {e}")
+                self._log.error(f"Batch: {batch}")
+                raise e
 
         progress.finish_sample_processing()
 
@@ -142,11 +147,13 @@ class Evaluator:
 
         return evaluation_results
 
-    def _load_audio_files(self, audio_paths: List[Path]) -> List[np.ndarray]:
+    def _load_audio_files(
+        self, audio_paths: List[str]
+    ) -> Tuple[List[np.ndarray], List[int]]:
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=self.cfg.max_workers
         ) as executor:
-            futures = [executor.submit(librosa.load, str(path)) for path in audio_paths]
+            futures = [executor.submit(librosa.load, path) for path in audio_paths]
             results = [future.result() for future in futures]
             audio_arrays = [result[0] for result in results]
             sampling_rates = [result[1] for result in results]

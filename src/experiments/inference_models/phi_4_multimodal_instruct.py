@@ -82,17 +82,43 @@ class Phi4MultimodalInstruct(ASRModelBase):
         self, prompt_string: str, audio_arrays: List[np.ndarray], sample_rate: int
     ) -> Dict[str, Any]:
         batch_size = len(audio_arrays)
+
+        # Ensure audio arrays are properly shaped (mono -> 2D if needed)
+        processed_audio_arrays = []
+        for i, audio_data in enumerate(audio_arrays):
+            # If audio is 1D (mono), convert to stereo by duplicating the channel
+            if audio_data.ndim == 1:
+                # Convert mono to stereo by duplicating the channel
+                processed_audio = np.stack([audio_data, audio_data], axis=1)
+                self._log.debug(
+                    f"Converted mono audio {i} to stereo: {audio_data.shape} -> {processed_audio.shape}"
+                )
+            else:
+                processed_audio = audio_data
+                self._log.debug(f"Audio {i} already stereo: {audio_data.shape}")
+            processed_audio_arrays.append(processed_audio)
+
         audio_tuples = [
             (audio_data, sample_rate)
-            for audio_data, sample_rate in zip(audio_arrays, [sample_rate] * batch_size)
+            for audio_data, sample_rate in zip(
+                processed_audio_arrays, [sample_rate] * batch_size
+            )
         ]
-        return self.processor(
-            text=[prompt_string] * batch_size,
-            audios=audio_tuples,
-            return_tensors="pt",
-            padding=True,
-            truncation=True,
-        ).to(self.device)
+
+        try:
+            return self.processor(
+                text=[prompt_string] * batch_size,
+                audios=audio_tuples,
+                return_tensors="pt",
+                padding=True,
+                truncation=True,
+            ).to(self.device)
+        except Exception as e:
+            self._log.error(f"Error processing audio batch: {e}")
+            self._log.error(
+                f"Audio shapes: {[arr.shape for arr in processed_audio_arrays]}"
+            )
+            raise
 
     def _generate_outputs(self, inputs: Dict[str, Any]) -> List[str]:
         generation_config = GenerationConfig.from_pretrained(self.model_dir)
