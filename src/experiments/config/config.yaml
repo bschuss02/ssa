@@ -15,6 +15,7 @@ datasets:
 max_samples_per_dataset: 10
 batch_size: 2
 output_dir: /Users/Benjamin/dev/ssa/output
+results_dir: /Users/Benjamin/dev/ssa/output/results
 dataset_cache_dir: /Users/Benjamin/dev/ssa/output/dataset_cache
 load_datasets_from_cache: false
 logging:

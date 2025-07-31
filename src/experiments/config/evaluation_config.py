@@ -37,6 +37,9 @@ class EvaluationConfig(BaseModel):
     )
     batch_size: int = Field(description="The batch size to use for inference")
     output_dir: Path = Field(description="The directory to save the evaluation results")
+    results_dir: Path = Field(
+        description="The directory to save the evaluation results"
+    )
     dataset_cache_dir: Path = Field(
         description="The directory to save the dataset cache"
     )

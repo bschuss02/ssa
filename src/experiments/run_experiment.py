@@ -1,7 +1,7 @@
 import hydra
 from omegaconf import DictConfig
 
-from experiments.config.EvaluationConfig import EvaluationConfig
+from experiments.config.evaluation_config import EvaluationConfig
 from experiments.evaluation.evaluator import Evaluator
 from experiments.utils.configure_logging import configure_logging
 
