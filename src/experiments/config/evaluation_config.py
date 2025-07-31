@@ -56,6 +56,10 @@ class EvaluationConfig(BaseModel):
         default=False,
         description="Whether to convert ground truth and predicted transcripts to lowercase before calculating metrics",
     )
+    max_workers: int = Field(
+        default=4,
+        description="The maximum number of workers to use for loading audio files",
+    )
     # Logging configuration
     logging: LoggerConfig = Field(
         default_factory=LoggerConfig, description="Logging configuration settings"

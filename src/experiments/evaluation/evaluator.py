@@ -1,8 +1,10 @@
+import concurrent
 import time
 from logging import getLogger
 from pathlib import Path
 from typing import Dict, List
 
+import librosa
 import numpy as np
 from datasets import Dataset
 
@@ -86,15 +88,14 @@ class Evaluator:
         self, model: ASRModelBase, batch: Dict
     ) -> List[EvaluationResult]:
         start_time = time.time()
-        audio_arrays = [np.array(audio_dict["array"]) for audio_dict in batch["audio"]]
-        sampling_rate = batch["audio"][0]["sampling_rate"]
+        audio_arrays, sampling_rates = self._load_audio_files(batch["clip_audio_file"])
         ground_truth_transcriptions = batch["unannotated_text"]
 
         # Check cache for existing transcriptions if cache is enabled
         cached_transcriptions = None
         if self.asr_cache is not None:
             cached_transcriptions = self.asr_cache.get(
-                model.model_name, audio_arrays, sampling_rate
+                model.model_name, audio_arrays, sampling_rates
             )
 
         if cached_transcriptions is not None:
@@ -104,13 +105,13 @@ class Evaluator:
             self._log.info(
                 f"Cache miss for {len(audio_arrays)} audio samples, running inference"
             )
-            predicted_transcriptions = model.transcribe(audio_arrays, sampling_rate)
+            predicted_transcriptions = model.transcribe(audio_arrays, sampling_rates[0])
             # Cache the results for future use if cache is enabled
             if self.asr_cache is not None:
                 self.asr_cache.set(
                     model.model_name,
                     audio_arrays,
-                    sampling_rate,
+                    sampling_rates[0],
                     predicted_transcriptions,
                 )
 
@@ -140,6 +141,16 @@ class Evaluator:
             evaluation_results.append(evaluation_result)
 
         return evaluation_results
+
+    def _load_audio_files(self, audio_paths: List[Path]) -> List[np.ndarray]:
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=self.cfg.max_workers
+        ) as executor:
+            futures = [executor.submit(librosa.load, str(path)) for path in audio_paths]
+            results = [future.result() for future in futures]
+            audio_arrays = [result[0] for result in results]
+            sampling_rates = [result[1] for result in results]
+        return audio_arrays, sampling_rates
 
     def clear_cache(self):
         """Clear the ASR cache."""

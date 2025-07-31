@@ -10,17 +10,18 @@ hydra:
 
 models:
   phi_4_multimodal_instruct: /Users/Benjamin/dev/ssa/models/Phi-4-multimodal-instruct
-  phi_4_with_stutter_prompt: /Users/Benjamin/dev/ssa/models/Phi-4-multimodal-instruct
+  # phi_4_with_stutter_prompt: /Users/Benjamin/dev/ssa/models/Phi-4-multimodal-instruct
 datasets:
   fluencybank: /Users/Benjamin/dev/ssa/data/fluencybank/processed
-max_samples_per_dataset: 50
-batch_size: 10
+max_samples_per_dataset: 10
+batch_size: 7
 output_dir: /Users/Benjamin/dev/ssa/output
 results_dir: /Users/Benjamin/dev/ssa/output/results
 dataset_cache_dir: /Users/Benjamin/dev/ssa/output/dataset_cache
 asr_cache_dir: /Users/Benjamin/dev/ssa/output/asr_cache
 use_asr_cache: true
 load_datasets_from_cache: false
+max_workers: 4
 remove_punctuation: true
 make_lowercase: true
 logging:
