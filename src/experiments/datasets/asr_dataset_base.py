@@ -3,7 +3,7 @@ from pathlib import Path
 
 from datasets import Dataset
 
-from experiments.config.EvaluationConfig import EvaluationConfig
+from experiments.config.evaluation_config import EvaluationConfig
 from experiments.utils.configure_logging import get_logger
 
 

@@ -10,7 +10,7 @@ from typing import Optional
 
 from rich.logging import RichHandler
 
-from experiments.config.EvaluationConfig import EvaluationConfig
+from experiments.config.evaluation_config import EvaluationConfig
 
 
 def configure_logging(config: EvaluationConfig) -> None:

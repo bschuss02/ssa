@@ -5,7 +5,7 @@ import librosa
 import polars as pl
 from datasets import Dataset
 
-from experiments.config.EvaluationConfig import EvaluationConfig
+from experiments.config.evaluation_config import EvaluationConfig
 from experiments.datasets.asr_dataset_base import ASRDatasetBase
 
 

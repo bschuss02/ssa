@@ -31,7 +31,7 @@ class ErrorAnalysisResult(BaseModel):
     """Results from error analysis"""
 
     worst_samples: List[EvaluationResult]
-    error_patterns: Dict[str, int]
+    error_patterns: Dict[str, Dict[str, list]]
     high_error_threshold: float
     samples_above_threshold: int
 
