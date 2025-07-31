@@ -40,6 +40,7 @@ class EvaluationConfig(BaseModel):
     results_dir: Path = Field(
         description="The directory to save the evaluation results"
     )
+    asr_cache_dir: Path = Field(description="The directory to save the ASR cache")
     dataset_cache_dir: Path = Field(
         description="The directory to save the dataset cache"
     )

@@ -17,6 +17,7 @@ batch_size: 2
 output_dir: /Users/Benjamin/dev/ssa/output
 results_dir: /Users/Benjamin/dev/ssa/output/results
 dataset_cache_dir: /Users/Benjamin/dev/ssa/output/dataset_cache
+asr_cache_dir: /Users/Benjamin/dev/ssa/output/asr_cache
 load_datasets_from_cache: false
 logging:
   log_level: INFO
