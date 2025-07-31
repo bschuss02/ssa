@@ -5,8 +5,6 @@ from typing import Dict, List
 import numpy as np
 import torch
 
-from experiments.utils.evaluation_result import EvaluationResult
-
 
 class ASRModelBase(ABC):
     model_name: str
@@ -31,6 +29,9 @@ class ASRModelBase(ABC):
 
     @abstractmethod
     def transcribe(
-        self, audio_arrays: List[np.ndarray], prompt_messages: List[Dict[str, str]]
-    ) -> List[EvaluationResult]:
+        self,
+        audio_arrays: List[np.ndarray],
+        sample_rate: int,
+        prompt_messages: List[Dict[str, str]],
+    ) -> List[str]:
         pass
