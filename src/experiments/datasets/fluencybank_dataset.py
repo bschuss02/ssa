@@ -13,7 +13,14 @@ class FluencybankDataset(ASRDatasetBase):
     def __init__(self, cfg: EvaluationConfig, dataset_name: str, dataset_path: Path):
         super().__init__(cfg, dataset_name, dataset_path)
 
-    def load_dataset(self, load_from_cache: bool = True) -> Dataset:
+    def load_dataset(self) -> Dataset:
+        if self.cfg.load_datasets_from_cache:
+            try:
+                self._dataset = self._load_from_cache()
+                return self._dataset
+            except Exception as e:
+                self._log.info(f"Error loading cache file: {e}")
+
         df = self._load_dataset_df()
 
         return_dtype = self._get_return_dtype(df)
@@ -79,3 +86,11 @@ class FluencybankDataset(ASRDatasetBase):
             self._log.warning(f"Audio file not found: {audio_path}")
             row_dict["audio"] = None
         return row_dict
+
+    def _load_from_cache(self) -> Dataset:
+        pass
+
+    def _save_to_cache(self, dataset: Dataset) -> None:
+        self._log.info(f"Saving dataset to cache at {self.cfg.dataset_cache_dir}")
+        dataset.save_to_disk(self.cfg.dataset_cache_dir / "fluencybank")
+        self._log.info(f"Dataset saved to cache at {self.cfg.dataset_cache_dir}")

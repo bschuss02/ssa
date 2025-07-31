@@ -63,10 +63,8 @@ class Evaluator:
         dataset_class = dataset_registry[dataset_name]
         dataset = dataset_class(self.cfg, dataset_name, dataset_path)
 
-        self._log.info(
-            f"Starting parallel dataset loading with {self.cfg.max_workers} workers"
-        )
-        dataset.load_dataset(load_from_cache=True)
+        self._log.info(f"Starting loading for dataset {dataset_name}")
+        dataset.load_dataset()
 
         return dataset._dataset
 

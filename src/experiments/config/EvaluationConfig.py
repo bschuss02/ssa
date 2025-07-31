@@ -40,10 +40,9 @@ class EvaluationConfig(BaseModel):
     dataset_cache_dir: Path = Field(
         description="The directory to save the dataset cache"
     )
-    max_workers: int = Field(
-        default=4, description="Maximum number of workers for loading audio dataset"
+    load_datasets_from_cache: bool = Field(
+        description="Whether to load datasets from cache"
     )
-
     # Logging configuration
     logging: LoggerConfig = Field(
         default_factory=LoggerConfig, description="Logging configuration settings"
