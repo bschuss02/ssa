@@ -1,13 +1,11 @@
 from logging import getLogger
 
 from experiments.config.EvaluationConfig import EvaluationConfig
-from experiments.utils.configure_logging import get_logger
 
 
 class Evaluator:
     def __init__(self, cfg: EvaluationConfig):
         self.cfg = cfg
-        # Get logger after configuration is set up
         self._log = getLogger(__name__)
 
     def evaluate(self):
