@@ -9,7 +9,7 @@ and provides detailed analysis including WER, CER, and other ASR quality metrics
 import hydra
 from omegaconf import DictConfig
 
-from experiments.config.models.asr_evaluator_config import ASREvaluatorConfig
+from experiments.config.asr_evaluator_config import ASREvaluatorConfig
 from experiments.utils.evaluation_engine import ASREvaluator
 from experiments.utils.logging_config import setup_logging
 

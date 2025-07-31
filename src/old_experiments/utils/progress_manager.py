@@ -5,8 +5,6 @@ This module provides a clean interface for managing progress bars
 and user feedback during the evaluation process.
 """
 
-from typing import List
-
 from rich.progress import (
     BarColumn,
     Progress,

@@ -10,7 +10,7 @@ from typing import List
 
 import numpy as np
 
-from experiments.config.models.asr_evaluator_config import ASREvaluatorConfig
+from experiments.config.asr_evaluator_config import ASREvaluatorConfig
 from experiments.utils.datasets.dataset_registry import dataset_registry
 from experiments.utils.inference_models.base_multimodal_asr_model import (
     BaseMultimodalASRModel,
