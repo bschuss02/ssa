@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import numpy as np
+import torch
 from transformers import AutoModelForCausalLM, AutoProcessor, GenerationConfig
 
 from experiments.inference_models.asr_model_base import ASRModelBase
@@ -49,7 +50,8 @@ class Phi4MultimodalInstruct(ASRModelBase):
         prompt_string = self._build_prompt_string_from_messages(self.prompt_messages)
         self._log.info(f"Prompt: {prompt_string}")
         inputs = self._prepare_inputs(prompt_string, audio_arrays, sample_rate)
-        outputs = self._generate_outputs(inputs)
+        with torch.no_grad():
+            outputs = self._generate_outputs(inputs)
         return outputs
 
     def _build_prompt_string_from_messages(
@@ -86,8 +88,20 @@ class Phi4MultimodalInstruct(ASRModelBase):
         # Ensure audio arrays are properly shaped (mono -> 2D if needed)
         processed_audio_arrays = []
         for i, audio_data in enumerate(audio_arrays):
+            # Check for empty or problematic audio files and pad them
+            if audio_data.size == 0 or audio_data.shape[0] < 10:
+                self._log.warning(
+                    f"Problematic audio file detected at index {i} (shape: {audio_data.shape}), padding with zeros"
+                )
+                # Create a minimal valid audio array with at least 100 samples
+                if audio_data.ndim == 1:
+                    processed_audio = np.zeros((100, 2), dtype=audio_data.dtype)
+                else:
+                    processed_audio = np.zeros(
+                        (100, audio_data.shape[1]), dtype=audio_data.dtype
+                    )
             # If audio is 1D (mono), convert to stereo by duplicating the channel
-            if audio_data.ndim == 1:
+            elif audio_data.ndim == 1:
                 # Convert mono to stereo by duplicating the channel
                 processed_audio = np.stack([audio_data, audio_data], axis=1)
                 self._log.debug(

@@ -85,7 +85,9 @@ class Evaluator:
             except Exception as e:
                 self._log.error(f"Error evaluating batch: {e}")
                 self._log.error(f"Batch: {batch}")
-                raise e
+                # Skip this batch and continue with the next one
+                progress.advance_sample_by(len(batch["clip_audio_file"]))
+                continue
 
         progress.finish_sample_processing()
 
@@ -94,13 +96,14 @@ class Evaluator:
     ) -> List[EvaluationResult]:
         start_time = time.time()
         audio_arrays, sampling_rates = self._load_audio_files(batch["clip_audio_file"])
+        sampling_rate = sampling_rates[0]
         ground_truth_transcriptions = batch["unannotated_text"]
 
         # Check cache for existing transcriptions if cache is enabled
         cached_transcriptions = None
         if self.asr_cache is not None:
             cached_transcriptions = self.asr_cache.get(
-                model.model_name, audio_arrays, sampling_rates
+                model.model_name, audio_arrays, sampling_rate
             )
 
         if cached_transcriptions is not None:
@@ -110,7 +113,7 @@ class Evaluator:
             self._log.info(
                 f"Cache miss for {len(audio_arrays)} audio samples, running inference"
             )
-            predicted_transcriptions = model.transcribe(audio_arrays, sampling_rates[0])
+            predicted_transcriptions = model.transcribe(audio_arrays, sampling_rate)
             # Cache the results for future use if cache is enabled
             if self.asr_cache is not None:
                 self.asr_cache.set(
