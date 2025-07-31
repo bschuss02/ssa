@@ -10,7 +10,7 @@ class EvaluationMetrics(BaseModel):
     visualize_alignment: str
 
 
-class EvaluationResultRow(BaseModel):
+class EvaluationResult(BaseModel):
     model_name: str
     dataset_name: str
     ground_truth_transcript: str
