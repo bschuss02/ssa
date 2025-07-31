@@ -10,6 +10,7 @@ hydra:
 
 models:
   phi_4_multimodal_instruct: /Users/Benjamin/dev/ssa/models/Phi-4-multimodal-instruct
+  phi_4_with_stutter_prompt: /Users/Benjamin/dev/ssa/models/Phi-4-multimodal-instruct
 datasets:
   fluencybank: /Users/Benjamin/dev/ssa/data/fluencybank/processed
 max_samples_per_dataset: 10

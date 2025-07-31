@@ -47,6 +47,7 @@ class Phi4MultimodalInstruct(ASRModelBase):
         sample_rate: int,
     ) -> List[str]:
         prompt_string = self._build_prompt_string_from_messages(self.prompt_messages)
+        self._log.info(f"Prompt: {prompt_string}")
         inputs = self._prepare_inputs(prompt_string, audio_arrays, sample_rate)
         outputs = self._generate_outputs(inputs)
         return outputs
