@@ -14,6 +14,7 @@ models:
   # phi_4_with_stutter_prompt: models/Phi-4-multimodal-instruct
 datasets:
   bbbenji: data/bbbenji
+
 max_samples_per_dataset: 1
 batch_size: 10
 output_dir: output
@@ -23,7 +24,10 @@ asr_cache_dir: output/asr_cache
 use_asr_cache: true
 load_datasets_from_cache: false
 max_workers: 4
-remove_punctuation: true
-make_lowercase: true
+
+data_preprocessing:
+  remove_punctuation: false
+  make_lowercase: false
+
 bbbenji:
   subset: stuttered

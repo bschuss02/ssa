@@ -17,6 +17,8 @@ class BbbenjiDataset(ASRDatasetBase):
         df = pl.read_parquet(df_path)
         original_length = len(df)
 
+        df = df.rename_columns({"sentence": "transcript"})
+
         if self.cfg.bbbenji.subset == "fluent":
             df = df.filter(pl.col("speechPatterns") == "fluent")
         elif self.cfg.bbbenji.subset == "stuttered":
@@ -26,6 +28,12 @@ class BbbenjiDataset(ASRDatasetBase):
         logger.info(
             f"Filtered Bbbenji dataset to {len(df)}/{original_length} samples for subset '{self.cfg.bbbenji.subset}'"
         )
+
+        if self.cfg.max_samples_per_dataset > 0:
+            df = df.head(self.cfg.max_samples_per_dataset)
+            logger.info(
+                f"Filtered Bbbenji dataset to {len(df)} samples for max_samples_per_dataset: {self.cfg.max_samples_per_dataset}"
+            )
 
         arrow_table = df.to_arrow()
         self._dataset = Dataset(arrow_table)

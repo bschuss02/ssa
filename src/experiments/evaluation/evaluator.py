@@ -18,6 +18,7 @@ from experiments.utils.evaluation_result import EvaluationResult
 from experiments.utils.progress_manager import ProgressManager
 
 AUDIO_FILE_COLUMN = "audio_path"
+GROUND_TRUTH_TRANSCRIPT_COLUMN = "transcript"
 
 
 class Evaluator:
