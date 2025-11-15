@@ -131,17 +131,18 @@ class Evaluator:
         )
 
         evaluation_results = []
-        for ground_truth_transcription, predicted_transcription, metrics in zip(
+        for ground_truth_transcription, transcription_output, metrics in zip(
             ground_truth_transcriptions,
-            predicted_transcriptions,
+            transcription_outputs,
             metrics_batch,
         ):
             evaluation_result = EvaluationResult(
                 model_name=model.model_name,
                 dataset_name=self.active_dataset_name,
                 ground_truth_transcript=ground_truth_transcription,
-                predicted_transcript=predicted_transcription,
+                predicted_transcript=transcription_output.transcription,
                 metrics=metrics,
+                metadata=transcription_output.metadata,
                 inference_time=inference_time,
             )
             evaluation_results.append(evaluation_result)

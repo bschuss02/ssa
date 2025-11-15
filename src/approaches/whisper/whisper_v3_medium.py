@@ -1,6 +1,6 @@
 from typing import List
 
-import whisper
+from transformers import pipeline
 
 from experiments.config.evaluation_config import EvaluationConfig
 from experiments.inference_models.asr_model_base import (
@@ -18,16 +18,15 @@ class WhisperV3Medium(ASRModelBase):
 
     def load_model(self):
         logger.info(f"Loading model {self.model_name}")
-        self.model = whisper.load_model("medium.en", device=self.device)
-        logger.info(f"Model {self.model_name} loaded successfully")
+        self.pipe = pipeline("automatic-speech-recognition", model="openai/whisper-medium.en")
 
     def transcribe(
         self, transcription_inputs: List[TranscriptionInput]
     ) -> List[TranscriptionOutput]:
-        audio_paths = [input.audio_path for input in transcription_inputs]
+        audio_paths = [str(ti.audio_path) for ti in transcription_inputs]
         if not all(audio_paths):
             raise ValueError("All transcription inputs must have an audio path")
-        results = self.model.transcribe(audio_paths, verbose=True)
+        results = self.pipe(audio_paths)
         return [
             TranscriptionOutput(transcription=result["text"], metadata=result) for result in results
         ]
