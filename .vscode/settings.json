@@ -1,0 +1,13 @@
+{
+	"editor.rulers": [120],
+	"editor.wordWrap": "wordWrapColumn",
+	"editor.wordWrapColumn": 100,
+	"[python]": {
+		"editor.defaultFormatter": "charliermarsh.ruff",
+		"editor.formatOnSave": true,
+		"editor.codeActionsOnSave": {
+			"source.fixAll": "explicit"
+		}
+	},
+	"ruff.lineLength": 100
+}

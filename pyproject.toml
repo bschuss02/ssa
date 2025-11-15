@@ -49,3 +49,4 @@ where = ["src"]
 
 [tool.ruff]
 extend-select = ["I"]
+line-length = 100
