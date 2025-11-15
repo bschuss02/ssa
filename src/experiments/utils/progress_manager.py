@@ -1,14 +1,18 @@
 from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TextColumn, TimeElapsedColumn
 
+from experiments.utils.configure_logging import console
+
 
 class ProgressManager:
     def __init__(self):
+        # Use the shared console instance for proper coordination with logging
         self.progress = Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
             BarColumn(),
             TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
             TimeElapsedColumn(),
+            console=console,  # Use shared console for coordination
         )
         self.model_task: TaskID | None = None
         self.dataset_task: TaskID | None = None

@@ -17,6 +17,8 @@ from experiments.utils.configure_logging import logger
 from experiments.utils.evaluation_result import EvaluationResult
 from experiments.utils.progress_manager import ProgressManager
 
+AUDIO_FILE_COLUMN = "audio_path"
+
 
 class Evaluator:
     evaluation_results: List[EvaluationResult]
@@ -80,19 +82,19 @@ class Evaluator:
             try:
                 results = self._evaluate_batch(model, batch)
                 self.evaluation_results.extend(results)
-                progress.advance_sample_by(len(batch["clip_audio_file"]))
+                progress.advance_sample_by(len(batch[AUDIO_FILE_COLUMN]))
             except Exception as e:
                 logger.error(f"Error evaluating batch: {e}")
                 logger.error(f"Batch: {batch}")
                 # Skip this batch and continue with the next one
-                progress.advance_sample_by(len(batch["clip_audio_file"]))
+                progress.advance_sample_by(len(batch[AUDIO_FILE_COLUMN]))
                 continue
 
         progress.finish_sample_processing()
 
     def _evaluate_batch(self, model: ASRModelBase, batch: Dict) -> List[EvaluationResult]:
         start_time = time.time()
-        audio_arrays, sampling_rates = self._load_audio_files(batch["clip_audio_file"])
+        audio_arrays, sampling_rates = self._load_audio_files(batch[AUDIO_FILE_COLUMN])
         sampling_rate = sampling_rates[0]
         ground_truth_transcriptions = batch["unannotated_text"]
 

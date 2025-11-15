@@ -20,7 +20,7 @@ class BbbenjiDataset(ASRDatasetBase):
         if self.cfg.bbbenji.subset == "fluent":
             df = df.filter(pl.col("speechPatterns") == "fluent")
         elif self.cfg.bbbenji.subset == "stuttered":
-            df = df.filter(pl.col("speechPatterns") == "stuttered")
+            df = df.filter(pl.col("speechPatterns") != "fluent")
         elif self.cfg.bbbenji.subset == "all":
             pass
         logger.info(

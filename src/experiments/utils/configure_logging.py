@@ -1,7 +1,11 @@
-import sys
 from pathlib import Path
 
 from loguru import logger
+from rich.console import Console
+
+# Create a shared console instance for better coordination with progress bars
+# This console will be used by both logging and progress bars
+console = Console(stderr=True, force_terminal=True)
 
 
 def configure_logging() -> None:
@@ -12,14 +16,41 @@ def configure_logging() -> None:
     # Hardcoded configuration
     log_level = "INFO"
     log_file = "output/logs/experiments.log"
-    use_colors = True
 
-    # Add console handler with colorization
+    # Custom sink that uses Rich console and properly coordinates with progress bars
+    def rich_sink(message):
+        """Custom sink that uses Rich console for proper progress bar coordination."""
+        record = message.record
+
+        # Format: time first, then message, then location (dimmed)
+        time_str = record["time"].strftime("%H:%M:%S")
+        location = f"{record['name']}:{record['function']}:{record['line']}"
+
+        # Use Rich's markup for colors
+        level_colors = {
+            "DEBUG": "dim white",
+            "INFO": "cyan",
+            "WARNING": "yellow",
+            "ERROR": "red",
+            "CRITICAL": "bold red",
+        }
+        level_color = level_colors.get(record["level"].name, "white")
+
+        # Use console.print() - Rich's console automatically coordinates with progress bars
+        # when using the same console instance (which we do via ProgressManager)
+        # Format: time first, then message, then location
+        console.print(
+            f"[dim]{time_str}[/dim] | "
+            f"[{level_color}]{record['message']}[/{level_color}] "
+            f"[dim]| {location}[/dim]",
+            markup=True,
+        )
+
     logger.add(
-        sys.stderr,
-        colorize=use_colors,
+        rich_sink,
         level=log_level,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+        colorize=False,  # Rich handles colors
+        format="{message}",  # We format manually in the sink
     )
 
     # Add file handler
@@ -32,7 +63,7 @@ def configure_logging() -> None:
         retention="10 days",
         compression="zip",
         level=log_level,
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+        format="{time:YYYY-MM-DD HH:mm:ss} | {message} | {level: <8} | {name}:{function}:{line}",
         enqueue=True,  # Thread-safe logging
     )
 
