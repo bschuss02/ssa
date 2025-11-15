@@ -26,15 +26,13 @@ class TranscriptionOutput(BaseModel):
 
 class ASRModelBase(ABC):
     model_name: str
-    model_dir: Path
     device: str
     audio_array_or_path: Literal["audio_array", "audio_path"]
 
     @abstractmethod
-    def __init__(self, model_name: Path, model_dir: Path, cfg: EvaluationConfig):
+    def __init__(self, model_name: str, cfg: EvaluationConfig):
         self.cfg = cfg
         self.model_name = model_name
-        self.model_dir = model_dir
         self.device = (
             "cuda"
             if torch.cuda.is_available()

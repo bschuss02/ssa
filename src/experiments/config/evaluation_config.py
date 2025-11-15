@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, Literal
+from typing import List, Literal
 
 from pydantic import BaseModel, Field
 
@@ -13,7 +13,7 @@ class BbbenjiConfig(BaseModel):
 
 
 class EvaluationConfig(BaseModel):
-    models: Dict[str, Path] = Field(description="A dictionary of model names and their paths")
+    models: List[str] = Field(description="A list of model names")
     datasets: List[str] = Field(description="A list of dataset names")
     max_samples_per_dataset: int = Field(
         description="The maximum number of audio samples to evaluate per dataset"

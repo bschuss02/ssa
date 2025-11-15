@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import List
 
 import whisper
@@ -13,12 +12,12 @@ from experiments.utils.configure_logging import logger
 
 
 class WhisperV3Medium(ASRModelBase):
-    def __init__(self, model_name: Path, model_dir: Path, cfg: EvaluationConfig):
-        super().__init__(model_name, model_dir, cfg)
+    def __init__(self, model_name: str, cfg: EvaluationConfig):
+        super().__init__(model_name, cfg)
         self.audio_array_or_path = "audio_path"
 
     def load_model(self):
-        logger.info(f"Loading model {self.model_name} from {self.model_dir}")
+        logger.info(f"Loading model {self.model_name}")
         self.model = whisper.load_model("medium.en", device=self.device)
         logger.info(f"Model {self.model_name} loaded successfully")
 

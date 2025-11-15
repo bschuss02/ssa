@@ -39,9 +39,9 @@ class Evaluator:
         """Entrypoint for the evaluation process"""
         with ProgressManager() as progress:
             progress.start_model_processing(len(self.cfg.models))
-            for model_name, model_path in self.cfg.models.items():
+            for model_name in self.cfg.models:
                 self.active_model_name = model_name
-                model = self._load_model(model_name, model_path)
+                model = self._load_model(model_name)
                 self._evaluate_model(model, progress)
                 progress.advance_model()
 
@@ -154,9 +154,9 @@ class Evaluator:
             sampling_rates = [result[1] for result in results]
         return audio_arrays, sampling_rates
 
-    def _load_model(self, model_name: str, model_path: Path) -> ASRModelBase:
+    def _load_model(self, model_name: str) -> ASRModelBase:
         model_class = model_registry[model_name]
-        model = model_class(model_name, model_path, self.cfg)
+        model = model_class(model_name, self.cfg)
         model.load_model()
         return model
 

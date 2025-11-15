@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import polars as pl
 from datasets import Dataset
 
@@ -11,7 +13,7 @@ class BbbenjiDataset(ASRDatasetBase):
         super().__init__(cfg, dataset_name)
 
     def load_dataset(self) -> Dataset:
-        df_path = self.dataset_path / "bbbenji.parquet"
+        df_path = Path("data/bbbenji/bbbenji.parquet")
         df = pl.read_parquet(df_path)
         original_length = len(df)
 

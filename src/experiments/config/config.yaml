@@ -9,7 +9,7 @@ hydra:
     dir: .
 
 models:
-  whisper_v3_medium: .
+  - whisper_v3_medium
   # phi_4_multimodal_instruct: models/Phi-4-multimodal-instruct
   # phi_4_with_stutter_prompt: models/Phi-4-multimodal-instruct
 datasets:
