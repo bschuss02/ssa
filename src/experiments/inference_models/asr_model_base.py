@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from logging import getLogger
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -8,8 +7,7 @@ import torch
 from pydantic import BaseModel, ConfigDict
 
 from experiments.config.evaluation_config import EvaluationConfig
-
-_log = getLogger(__name__)
+from experiments.utils.configure_logging import logger
 
 
 class TranscriptionInput(BaseModel):
@@ -43,7 +41,7 @@ class ASRModelBase(ABC):
             if torch.backends.mps.is_available()
             else "cpu"
         )
-        _log.info(f"Using device: {self.device}")
+        logger.info(f"Using device: {self.device}")
 
     @abstractmethod
     def load_model(self):

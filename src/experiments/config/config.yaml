@@ -25,11 +25,5 @@ load_datasets_from_cache: false
 max_workers: 4
 remove_punctuation: true
 make_lowercase: true
-logging:
-  log_level: INFO
-  log_file: output/logs/experiments.log
-  log_format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-  use_rich_logging: true
-  show_terminal_logs: true
 bbbenji:
   subset: stuttered

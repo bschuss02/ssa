@@ -1,163 +1,43 @@
-"""
-Logging configuration for experiments.
-
-This module provides centralized logging setup for the experiments pipeline.
-"""
-
-import logging
 import sys
-from typing import Optional
+from pathlib import Path
 
-from rich.logging import RichHandler
-
-from experiments.config.evaluation_config import EvaluationConfig
+from loguru import logger
 
 
-def configure_logging(config: EvaluationConfig) -> None:
-    """
-    Configure the global logging system based on the provided EvaluationConfig.
+def configure_logging() -> None:
+    """Configure loguru logger with hardcoded settings."""
+    # Remove default handler
+    logger.remove()
 
-    This function should be called once at the start of your application.
-    After calling this function, you can use `logging.getLogger(__name__)`
-    anywhere in your code to get a properly configured logger.
+    # Hardcoded configuration
+    log_level = "INFO"
+    log_file = "output/logs/experiments.log"
+    use_colors = True
 
-    Args:
-        config: The evaluation configuration containing logging settings
-    """
-    # Clear any existing handlers from root logger
-    root_logger = logging.getLogger()
-    for handler in root_logger.handlers[:]:
-        root_logger.removeHandler(handler)
-
-    # Convert string log level to logging constant
-    log_level = getattr(logging, config.logging.log_level.upper())
-
-    # Set the root logger level
-    root_logger.setLevel(log_level)
-
-    # Create handlers list
-    handlers = []
-
-    # Console handler (only if show_terminal_logs is True)
-    if config.logging.show_terminal_logs:
-        if config.logging.use_rich_logging:
-            try:
-                console_handler = RichHandler(rich_tracebacks=True, show_time=True, show_path=False)
-                console_handler.setLevel(log_level)
-                handlers.append(console_handler)
-            except ImportError:
-                # Fallback to standard handler if rich is not available
-                console_handler = logging.StreamHandler(sys.stdout)
-                console_handler.setLevel(log_level)
-                formatter = logging.Formatter(config.logging.log_format)
-                console_handler.setFormatter(formatter)
-                handlers.append(console_handler)
-        else:
-            console_handler = logging.StreamHandler(sys.stdout)
-            console_handler.setLevel(log_level)
-            formatter = logging.Formatter(config.logging.log_format)
-            console_handler.setFormatter(formatter)
-            handlers.append(console_handler)
-
-    # File handler (if log_file is specified)
-    if config.logging.log_file is not None:
-        # Ensure log directory exists
-        config.logging.log_file.parent.mkdir(parents=True, exist_ok=True)
-
-        file_handler = logging.FileHandler(config.logging.log_file)
-        file_handler.setLevel(log_level)
-        formatter = logging.Formatter(config.logging.log_format)
-        file_handler.setFormatter(formatter)
-        handlers.append(file_handler)
-
-    # Add all handlers to the root logger
-    for handler in handlers:
-        root_logger.addHandler(handler)
-
-    # Configure basic logging to ensure proper propagation
-    logging.basicConfig(
+    # Add console handler with colorization
+    logger.add(
+        sys.stderr,
+        colorize=use_colors,
         level=log_level,
-        format="%(message)s" if config.logging.use_rich_logging else config.logging.log_format,
-        datefmt="[%X]" if config.logging.use_rich_logging else None,
-        handlers=handlers,
-        force=True,
+        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
     )
 
-    # Ensure all existing loggers are properly configured
-    for logger_name in logging.root.manager.loggerDict:
-        logger = logging.getLogger(logger_name)
-        logger.handlers.clear()  # Remove any existing handlers
-        logger.propagate = True  # Ensure propagation to root logger
-        logger.setLevel(log_level)  # Set explicit level for existing loggers
+    # Add file handler
+    log_path = Path(log_file)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Set up a custom logger factory to ensure new loggers are properly configured
-    # This ensures loggers created after configure_logging are also configured
-    original_getLogger = logging.getLogger
+    logger.add(
+        str(log_path),
+        rotation="20 MB",
+        retention="10 days",
+        compression="zip",
+        level=log_level,
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+        enqueue=True,  # Thread-safe logging
+    )
 
-    def configured_getLogger(name=None):
-        logger = original_getLogger(name)
-        # Configure the logger: set level, ensure propagation, clear direct handlers
-        # This works for both new loggers and existing ones that might have been
-        # created before configure_logging ran
-        if logger.level == logging.NOTSET or logger.level > log_level:
-            logger.setLevel(log_level)
-        if not logger.propagate:
-            logger.propagate = True
-        # Clear any direct handlers - we want all logs to go through root logger
-        logger.handlers.clear()
-        return logger
-
-    # Monkey-patch getLogger to use our configured version
-    logging.getLogger = configured_getLogger
-
-    # Re-configure any loggers that were already created (in case they were
-    # created before configure_logging ran but are retrieved after)
-    # This is a safety measure for edge cases - it ensures loggers created
-    # during module imports (before configure_logging runs) are properly configured
-    for logger_name in list(logging.root.manager.loggerDict.keys()):
-        logger = logging.getLogger(logger_name)
-        if logger.level == logging.NOTSET or logger.level > log_level:
-            logger.setLevel(log_level)
-        if not logger.propagate:
-            logger.propagate = True
-        logger.handlers.clear()
-
-    # Also ensure parent loggers in the hierarchy are configured
-    # This is important for loggers like "approaches.whisper.whisper_v3_medium"
-    # where parent loggers ("approaches", "approaches.whisper") might also need configuration
-    for logger_name in list(logging.root.manager.loggerDict.keys()):
-        parts = logger_name.split(".")
-        for i in range(1, len(parts)):
-            parent_name = ".".join(parts[:i])
-            if parent_name not in logging.root.manager.loggerDict:
-                # Create parent logger if it doesn't exist and configure it
-                parent_logger = logging.getLogger(parent_name)
-                if parent_logger.level == logging.NOTSET or parent_logger.level > log_level:
-                    parent_logger.setLevel(log_level)
-                if not parent_logger.propagate:
-                    parent_logger.propagate = True
-                parent_logger.handlers.clear()
+    logger.info(f"Logging configured: level={log_level}, file={log_file}")
 
 
-def get_logger(name: Optional[str] = None) -> logging.Logger:
-    """
-    Get a logger instance. This is a convenience function that can be used
-    when you don't have access to the config object.
-
-    Args:
-        name: Logger name. If None, uses __name__ from calling module
-
-    Returns:
-        Logger instance
-    """
-    if name is None:
-        import inspect
-
-        frame = inspect.currentframe()
-        try:
-            caller_frame = frame.f_back
-            name = caller_frame.f_globals.get("__name__", __name__)
-        finally:
-            del frame
-
-    return logging.getLogger(name)
+# Export logger for easy import
+__all__ = ["logger", "configure_logging"]

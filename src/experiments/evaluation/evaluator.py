@@ -1,6 +1,5 @@
 import concurrent
 import time
-from logging import getLogger
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -14,6 +13,7 @@ from experiments.inference_models.asr_model_base import ASRModelBase
 from experiments.inference_models.model_registry import model_registry
 from experiments.utils.asr_cache import ASRCache
 from experiments.utils.calculate_metrics import calculate_metrics
+from experiments.utils.configure_logging import logger
 from experiments.utils.evaluation_result import EvaluationResult
 from experiments.utils.progress_manager import ProgressManager
 
@@ -25,7 +25,6 @@ class Evaluator:
 
     def __init__(self, cfg: EvaluationConfig):
         self.cfg = cfg
-        self._log = getLogger(__name__)
         self.evaluation_results = []
         self.active_model_name = None
         self.active_dataset_name = None
@@ -33,10 +32,10 @@ class Evaluator:
         # Initialize ASR cache if enabled
         if self.cfg.use_asr_cache:
             self.asr_cache = ASRCache(self.cfg.asr_cache_dir)
-            self._log.info(f"Initialized ASR cache at {self.cfg.asr_cache_dir}")
+            logger.info(f"Initialized ASR cache at {self.cfg.asr_cache_dir}")
         else:
             self.asr_cache = None
-            self._log.info("ASR cache disabled")
+            logger.info("ASR cache disabled")
 
     def evaluate(self):
         """Entrypoint for the evaluation process"""
@@ -51,11 +50,11 @@ class Evaluator:
         # Log cache statistics if cache is enabled
         if self.asr_cache is not None:
             cache_stats = self.asr_cache.get_stats()
-            self._log.info(f"ASR Cache Statistics: {cache_stats}")
+            logger.info(f"ASR Cache Statistics: {cache_stats}")
             self.asr_cache.close()
 
         # Analyze and visualize results
-        self._log.info("Evaluation complete. Starting analysis and visualization...")
+        logger.info("Evaluation complete. Starting analysis and visualization...")
         self._analyze_results(self.evaluation_results)
 
     def _evaluate_model(self, model: ASRModelBase, progress: ProgressManager):
@@ -83,8 +82,8 @@ class Evaluator:
                 self.evaluation_results.extend(results)
                 progress.advance_sample_by(len(batch["clip_audio_file"]))
             except Exception as e:
-                self._log.error(f"Error evaluating batch: {e}")
-                self._log.error(f"Batch: {batch}")
+                logger.error(f"Error evaluating batch: {e}")
+                logger.error(f"Batch: {batch}")
                 # Skip this batch and continue with the next one
                 progress.advance_sample_by(len(batch["clip_audio_file"]))
                 continue
@@ -105,10 +104,10 @@ class Evaluator:
             )
 
         if cached_transcriptions is not None:
-            self._log.info(f"Cache hit for {len(audio_arrays)} audio samples")
+            logger.info(f"Cache hit for {len(audio_arrays)} audio samples")
             predicted_transcriptions = cached_transcriptions
         else:
-            self._log.info(f"Cache miss for {len(audio_arrays)} audio samples, running inference")
+            logger.info(f"Cache miss for {len(audio_arrays)} audio samples, running inference")
             predicted_transcriptions = model.transcribe(audio_arrays, sampling_rate)
             # Cache the results for future use if cache is enabled
             if self.asr_cache is not None:
@@ -119,7 +118,7 @@ class Evaluator:
                     predicted_transcriptions,
                 )
 
-        self._log.info(predicted_transcriptions)
+        logger.info(predicted_transcriptions)
         metrics_batch = calculate_metrics(
             predicted_transcriptions,
             ground_truth_transcriptions,
@@ -127,7 +126,7 @@ class Evaluator:
             self.cfg.make_lowercase,
         )
         inference_time = time.time() - start_time
-        self._log.info(metrics_batch)
+        logger.info(metrics_batch)
         evaluation_results = []
         for ground_truth_transcription, predicted_transcription, metrics in zip(
             ground_truth_transcriptions,
@@ -158,9 +157,9 @@ class Evaluator:
         """Clear the ASR cache."""
         if self.asr_cache is not None:
             self.asr_cache.clear()
-            self._log.info("ASR cache cleared")
+            logger.info("ASR cache cleared")
         else:
-            self._log.warning("ASR cache is not enabled")
+            logger.warning("ASR cache is not enabled")
 
     def get_cache_stats(self) -> Dict:
         """Get cache statistics.
@@ -180,7 +179,7 @@ class Evaluator:
         return model
 
     def _load_dataset(self, dataset_name: str, dataset_path: Path) -> Dataset:
-        self._log.info(f"Loading dataset {dataset_name} from {dataset_path}")
+        logger.info(f"Loading dataset {dataset_name} from {dataset_path}")
 
         if dataset_name not in dataset_registry:
             raise ValueError(
@@ -190,7 +189,7 @@ class Evaluator:
         dataset_class = dataset_registry[dataset_name]
         dataset = dataset_class(self.cfg, dataset_name, dataset_path)
 
-        self._log.info(f"Starting loading for dataset {dataset_name}")
+        logger.info(f"Starting loading for dataset {dataset_name}")
         dataset.load_dataset()
 
         return dataset._dataset
@@ -211,5 +210,5 @@ class Evaluator:
         }
 
         # Use the ResultsAnalyzer to handle all analysis and visualization
-        analyzer = ResultsAnalyzer(self.cfg.results_dir, self._log)
+        analyzer = ResultsAnalyzer(self.cfg.results_dir)
         return analyzer.analyze_and_visualize(evaluation_results, config)

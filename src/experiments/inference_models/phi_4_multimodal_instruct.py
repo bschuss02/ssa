@@ -1,4 +1,3 @@
-from logging import getLogger
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -6,18 +5,19 @@ import numpy as np
 import torch
 from transformers import AutoModelForCausalLM, AutoProcessor, GenerationConfig
 
+from experiments.config.evaluation_config import EvaluationConfig
 from experiments.inference_models.asr_model_base import ASRModelBase
+from experiments.utils.configure_logging import logger
 
 
 class Phi4MultimodalInstruct(ASRModelBase):
     model: Any
     processor: Any
 
-    def __init__(self, model_name: Path, model_dir: Path):
-        super().__init__(model_name, model_dir)
+    def __init__(self, model_name: Path, model_dir: Path, cfg: EvaluationConfig):
+        super().__init__(model_name, model_dir, cfg)
         self.model = None
         self.processor = None
-        self._log = getLogger(__name__)
         self.prompt_messages = [
             {
                 "role": "system",
@@ -30,10 +30,8 @@ class Phi4MultimodalInstruct(ASRModelBase):
         ]
 
     def load_model(self):
-        self._log.info(f"Loading model {self.model_name} from {self.model_dir}")
-        self.processor = AutoProcessor.from_pretrained(
-            self.model_dir, trust_remote_code=True
-        )
+        logger.info(f"Loading model {self.model_name} from {self.model_dir}")
+        self.processor = AutoProcessor.from_pretrained(self.model_dir, trust_remote_code=True)
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_dir,
             trust_remote_code=True,
@@ -48,15 +46,13 @@ class Phi4MultimodalInstruct(ASRModelBase):
         sample_rate: int,
     ) -> List[str]:
         prompt_string = self._build_prompt_string_from_messages(self.prompt_messages)
-        self._log.info(f"Prompt: {prompt_string}")
+        logger.info(f"Prompt: {prompt_string}")
         inputs = self._prepare_inputs(prompt_string, audio_arrays, sample_rate)
         with torch.no_grad():
             outputs = self._generate_outputs(inputs)
         return outputs
 
-    def _build_prompt_string_from_messages(
-        self, prompt_messages: List[Dict[str, str]]
-    ) -> str:
+    def _build_prompt_string_from_messages(self, prompt_messages: List[Dict[str, str]]) -> str:
         user_prompt = "<|user|>"
         assistant_prompt = "<|assistant|>"
         prompt_suffix = "<|end|>"
@@ -90,33 +86,29 @@ class Phi4MultimodalInstruct(ASRModelBase):
         for i, audio_data in enumerate(audio_arrays):
             # Check for empty or problematic audio files and pad them
             if audio_data.size == 0 or audio_data.shape[0] < 10:
-                self._log.warning(
+                logger.warning(
                     f"Problematic audio file detected at index {i} (shape: {audio_data.shape}), padding with zeros"
                 )
                 # Create a minimal valid audio array with at least 100 samples
                 if audio_data.ndim == 1:
                     processed_audio = np.zeros((100, 2), dtype=audio_data.dtype)
                 else:
-                    processed_audio = np.zeros(
-                        (100, audio_data.shape[1]), dtype=audio_data.dtype
-                    )
+                    processed_audio = np.zeros((100, audio_data.shape[1]), dtype=audio_data.dtype)
             # If audio is 1D (mono), convert to stereo by duplicating the channel
             elif audio_data.ndim == 1:
                 # Convert mono to stereo by duplicating the channel
                 processed_audio = np.stack([audio_data, audio_data], axis=1)
-                self._log.debug(
+                logger.debug(
                     f"Converted mono audio {i} to stereo: {audio_data.shape} -> {processed_audio.shape}"
                 )
             else:
                 processed_audio = audio_data
-                self._log.debug(f"Audio {i} already stereo: {audio_data.shape}")
+                logger.debug(f"Audio {i} already stereo: {audio_data.shape}")
             processed_audio_arrays.append(processed_audio)
 
         audio_tuples = [
             (audio_data, sample_rate)
-            for audio_data, sample_rate in zip(
-                processed_audio_arrays, [sample_rate] * batch_size
-            )
+            for audio_data, sample_rate in zip(processed_audio_arrays, [sample_rate] * batch_size)
         ]
 
         try:
@@ -128,10 +120,8 @@ class Phi4MultimodalInstruct(ASRModelBase):
                 truncation=True,
             ).to(self.device)
         except Exception as e:
-            self._log.error(f"Error processing audio batch: {e}")
-            self._log.error(
-                f"Audio shapes: {[arr.shape for arr in processed_audio_arrays]}"
-            )
+            logger.error(f"Error processing audio batch: {e}")
+            logger.error(f"Audio shapes: {[arr.shape for arr in processed_audio_arrays]}")
             raise
 
     def _generate_outputs(self, inputs: Dict[str, Any]) -> List[str]:

@@ -1,12 +1,10 @@
 from abc import ABC, abstractmethod
-from logging import getLogger
 from pathlib import Path
 
 from datasets import Dataset
 
 from experiments.config.evaluation_config import EvaluationConfig
-
-_log = getLogger(__name__)
+from experiments.utils.configure_logging import logger
 
 
 class ASRDatasetBase(ABC):
@@ -15,7 +13,7 @@ class ASRDatasetBase(ABC):
         self.cfg = cfg
         self.dataset_name = dataset_name
         self.dataset_path = dataset_path
-        _log.info(f"Initialized dataset {dataset_name} with path {dataset_path}")
+        logger.info(f"Initialized dataset {dataset_name} with path {dataset_path}")
 
     @abstractmethod
     def load_dataset(self, load_from_cache: bool = True) -> Dataset:

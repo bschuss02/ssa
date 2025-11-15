@@ -7,12 +7,12 @@ error analysis, and dataset analysis with automated visualization generation.
 """
 
 import json
-import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
 from experiments.utils.analyze_results import analyze_results
+from experiments.utils.configure_logging import logger
 from experiments.utils.visualize_results import (
     ASRResultsVisualizer,
     create_detailed_analysis_report,
@@ -23,16 +23,14 @@ from experiments.utils.visualize_results import (
 class ResultsAnalyzer:
     """Handles comprehensive analysis and visualization of ASR evaluation results"""
 
-    def __init__(self, results_dir: str, log: logging.Logger = None):
+    def __init__(self, results_dir: str):
         """
         Initialize the ResultsAnalyzer
 
         Args:
             results_dir: Directory to save analysis results
-            log: Logger instance for logging
         """
         self.results_dir = Path(results_dir)
-        self._log = log or logging.getLogger(__name__)
 
     def analyze_and_visualize(
         self, evaluation_results: List, config: Dict = None
@@ -48,10 +46,10 @@ class ResultsAnalyzer:
             Dictionary containing analysis results
         """
         if not evaluation_results:
-            self._log.warning("No evaluation results to analyze")
+            logger.warning("No evaluation results to analyze")
             return {}
 
-        self._log.info(f"Analyzing {len(evaluation_results)} evaluation results")
+        logger.info(f"Analyzing {len(evaluation_results)} evaluation results")
 
         # Perform comprehensive analysis
         analysis_results = analyze_results(evaluation_results)
@@ -82,7 +80,7 @@ class ResultsAnalyzer:
             config,
         )
 
-        self._log.info(f"Analysis complete. Visualizations saved to {output_dir}")
+        logger.info(f"Analysis complete. Visualizations saved to {output_dir}")
 
         # Print summary statistics
         self._print_analysis_summary(analysis_results)

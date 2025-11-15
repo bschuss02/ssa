@@ -1,4 +1,3 @@
-from logging import getLogger
 from pathlib import Path
 
 import polars as pl
@@ -6,8 +5,7 @@ from datasets import Dataset
 
 from experiments.config.evaluation_config import EvaluationConfig
 from experiments.datasets.asr_dataset_base import ASRDatasetBase
-
-_log = getLogger(__name__)
+from experiments.utils.configure_logging import logger
 
 
 class BbbenjiDataset(ASRDatasetBase):
@@ -25,11 +23,11 @@ class BbbenjiDataset(ASRDatasetBase):
             df = df.filter(pl.col("speechPatterns") == "stuttered")
         elif self.cfg.bbbenji.subset == "all":
             pass
-        _log.info(
+        logger.info(
             f"Filtered Bbbenji dataset to {len(df)}/{original_length} samples for subset '{self.cfg.bbbenji.subset}'"
         )
 
         arrow_table = df.to_arrow()
         self._dataset = Dataset(arrow_table)
-        _log.info(f"Successfully loaded dataset with {len(self._dataset)} samples")
+        logger.info(f"Successfully loaded dataset with {len(self._dataset)} samples")
         return self._dataset

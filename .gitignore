@@ -12,3 +12,4 @@ models
 data
 .env
 output
+logs
