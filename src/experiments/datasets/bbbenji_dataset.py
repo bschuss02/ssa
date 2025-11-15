@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import polars as pl
 from datasets import Dataset
 
@@ -9,8 +7,8 @@ from experiments.utils.configure_logging import logger
 
 
 class BbbenjiDataset(ASRDatasetBase):
-    def __init__(self, cfg: EvaluationConfig, dataset_name: str, dataset_path: Path):
-        super().__init__(cfg, dataset_name, dataset_path)
+    def __init__(self, cfg: EvaluationConfig, dataset_name: str):
+        super().__init__(cfg, dataset_name)
 
     def load_dataset(self) -> Dataset:
         df_path = self.dataset_path / "bbbenji.parquet"

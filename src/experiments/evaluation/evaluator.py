@@ -41,20 +41,20 @@ class Evaluator:
             progress.start_model_processing(len(self.cfg.models))
             for model_name, model_path in self.cfg.models.items():
                 self.active_model_name = model_name
-                model = self.load_model(model_name, model_path)
+                model = self._load_model(model_name, model_path)
                 self._evaluate_model(model, progress)
                 progress.advance_model()
 
-        # Analyze and visualize results
+        # Save and analyze and visualize results
         logger.info("Evaluation complete. Starting analysis and visualization...")
         self._analyze_results(self.evaluation_results)
 
     def _evaluate_model(self, model: ASRModelBase, progress: ProgressManager):
         """Iterate over all datasets and evaluate the model on each"""
-        for dataset_name, dataset_path in self.cfg.datasets.items():
+        for dataset_name in self.cfg.datasets:
             progress.start_dataset_processing(model.model_name, len(self.cfg.datasets))
             self.active_dataset_name = dataset_name
-            dataset = self._load_dataset(dataset_name, dataset_path)
+            dataset = self._load_dataset(dataset_name)
             self._evaluate_dataset(model, dataset, progress)
             progress.advance_dataset()
             progress.finish_dataset_processing()
@@ -89,32 +89,43 @@ class Evaluator:
         # Prepare transcription inputs based on model type
         if model.audio_array_or_path == "audio_array":
             audio_arrays, sampling_rates = self._load_audio_files(batch[AUDIO_FILE_COLUMN])
-            sampling_rate = sampling_rates[0]
             transcription_inputs = [
-                TranscriptionInput(audio_array=audio_array, sample_rate=sampling_rate)
-                for audio_array in audio_arrays
+                TranscriptionInput(
+                    audio_array=audio_array, sample_rate=sampling_rate, metadata=dataset_row
+                )
+                for audio_array, sampling_rate, dataset_row in zip(
+                    audio_arrays, sampling_rates, batch
+                )
             ]
         elif model.audio_array_or_path == "audio_path":
-            audio_paths = batch[AUDIO_FILE_COLUMN]
             transcription_inputs = [
-                TranscriptionInput(audio_path=Path(audio_path)) for audio_path in audio_paths
+                TranscriptionInput(
+                    audio_path=Path(dataset_row[AUDIO_FILE_COLUMN]), metadata=dataset_row
+                )
+                for dataset_row in batch
             ]
         else:
             raise ValueError(f"Unknown audio_array_or_path: {model.audio_array_or_path}")
 
         # Run transcription
         transcription_outputs: List[TranscriptionOutput] = model.transcribe(transcription_inputs)
+        inference_time = time.time() - start_time
+        for input, output in zip(transcription_inputs, transcription_outputs):
+            output.metadata = {
+                **input.metadata,
+                **output.metadata,
+                "inference_time": inference_time,
+            }
+
         predicted_transcriptions = [output.transcription for output in transcription_outputs]
 
-        logger.info(predicted_transcriptions)
         metrics_batch = calculate_metrics(
             predicted_transcriptions,
             ground_truth_transcriptions,
             self.cfg.remove_punctuation,
             self.cfg.make_lowercase,
         )
-        inference_time = time.time() - start_time
-        logger.info(metrics_batch)
+
         evaluation_results = []
         for ground_truth_transcription, predicted_transcription, metrics in zip(
             ground_truth_transcriptions,
@@ -131,6 +142,8 @@ class Evaluator:
             )
             evaluation_results.append(evaluation_result)
 
+        logger.info(f"Metrics batch: {metrics_batch}")
+
         return evaluation_results
 
     def _load_audio_files(self, audio_paths: List[str]) -> Tuple[List[np.ndarray], List[int]]:
@@ -141,27 +154,16 @@ class Evaluator:
             sampling_rates = [result[1] for result in results]
         return audio_arrays, sampling_rates
 
-    def load_model(self, model_name: str, model_path: Path) -> ASRModelBase:
+    def _load_model(self, model_name: str, model_path: Path) -> ASRModelBase:
         model_class = model_registry[model_name]
         model = model_class(model_name, model_path, self.cfg)
         model.load_model()
         return model
 
-    def _load_dataset(self, dataset_name: str, dataset_path: Path) -> Dataset:
-        logger.info(f"Loading dataset {dataset_name} from {dataset_path}")
-
-        if dataset_name not in dataset_registry:
-            raise ValueError(
-                f"Unknown dataset: {dataset_name}. Available datasets: {list(dataset_registry.keys())}"
-            )
-
+    def _load_dataset(self, dataset_name: str) -> Dataset:
         dataset_class = dataset_registry[dataset_name]
-        dataset = dataset_class(self.cfg, dataset_name, dataset_path)
-
-        logger.info(f"Starting loading for dataset {dataset_name}")
-        dataset.load_dataset()
-
-        return dataset._dataset
+        dataset = dataset_class(self.cfg, dataset_name)
+        return dataset.load_dataset()
 
     def _analyze_results(self, evaluation_results: List[EvaluationResult]):
         """Analyze and visualize evaluation results"""

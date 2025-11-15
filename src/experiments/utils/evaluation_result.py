@@ -1,3 +1,5 @@
+from typing import Any, Dict
+
 from pydantic import BaseModel
 
 
@@ -16,3 +18,4 @@ class EvaluationResult(BaseModel):
     predicted_transcript: str
     inference_time: float
     metrics: EvaluationMetrics
+    metadata: Dict[str, Any]

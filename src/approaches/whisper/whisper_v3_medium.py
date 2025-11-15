@@ -30,7 +30,5 @@ class WhisperV3Medium(ASRModelBase):
             raise ValueError("All transcription inputs must have an audio path")
         results = self.model.transcribe(audio_paths, verbose=True)
         return [
-            TranscriptionOutput(transcription=result["text"], metadata={**result, **input.metadata})
-            for result, input in zip(results, transcription_inputs)
-            if result is not None
+            TranscriptionOutput(transcription=result["text"], metadata=result) for result in results
         ]
