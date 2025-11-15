@@ -9,16 +9,17 @@ hydra:
     dir: .
 
 models:
-  phi_4_multimodal_instruct: /Users/Benjamin/dev/ssa/models/Phi-4-multimodal-instruct
-  # phi_4_with_stutter_prompt: /Users/Benjamin/dev/ssa/models/Phi-4-multimodal-instruct
+  whisper_v3_medium: .
+  # phi_4_multimodal_instruct: models/Phi-4-multimodal-instruct
+  # phi_4_with_stutter_prompt: models/Phi-4-multimodal-instruct
 datasets:
-  fluencybank: /Users/Benjamin/dev/ssa/data/fluencybank/processed
+  fluencybank: data/bbbenji
 max_samples_per_dataset: 0
 batch_size: 10
-output_dir: /Users/Benjamin/dev/ssa/output
-results_dir: /Users/Benjamin/dev/ssa/output/results
-dataset_cache_dir: /Users/Benjamin/dev/ssa/output/dataset_cache
-asr_cache_dir: /Users/Benjamin/dev/ssa/output/asr_cache
+output_dir: output
+results_dir: output/results
+dataset_cache_dir: output/dataset_cache
+asr_cache_dir: output/asr_cache
 use_asr_cache: true
 load_datasets_from_cache: false
 max_workers: 4
@@ -26,7 +27,7 @@ remove_punctuation: true
 make_lowercase: true
 logging:
   log_level: INFO
-  log_file: /Users/Benjamin/dev/ssa/output/logs/experiments.log
+  log_file: output/logs/experiments.log
   log_format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
   use_rich_logging: true
   show_terminal_logs: true

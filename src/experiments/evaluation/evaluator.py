@@ -91,9 +91,7 @@ class Evaluator:
 
         progress.finish_sample_processing()
 
-    def _evaluate_batch(
-        self, model: ASRModelBase, batch: Dict
-    ) -> List[EvaluationResult]:
+    def _evaluate_batch(self, model: ASRModelBase, batch: Dict) -> List[EvaluationResult]:
         start_time = time.time()
         audio_arrays, sampling_rates = self._load_audio_files(batch["clip_audio_file"])
         sampling_rate = sampling_rates[0]
@@ -110,9 +108,7 @@ class Evaluator:
             self._log.info(f"Cache hit for {len(audio_arrays)} audio samples")
             predicted_transcriptions = cached_transcriptions
         else:
-            self._log.info(
-                f"Cache miss for {len(audio_arrays)} audio samples, running inference"
-            )
+            self._log.info(f"Cache miss for {len(audio_arrays)} audio samples, running inference")
             predicted_transcriptions = model.transcribe(audio_arrays, sampling_rate)
             # Cache the results for future use if cache is enabled
             if self.asr_cache is not None:
@@ -150,12 +146,8 @@ class Evaluator:
 
         return evaluation_results
 
-    def _load_audio_files(
-        self, audio_paths: List[str]
-    ) -> Tuple[List[np.ndarray], List[int]]:
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=self.cfg.max_workers
-        ) as executor:
+    def _load_audio_files(self, audio_paths: List[str]) -> Tuple[List[np.ndarray], List[int]]:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.cfg.max_workers) as executor:
             futures = [executor.submit(librosa.load, path) for path in audio_paths]
             results = [future.result() for future in futures]
             audio_arrays = [result[0] for result in results]
@@ -183,7 +175,7 @@ class Evaluator:
 
     def load_model(self, model_name: str, model_path: Path) -> ASRModelBase:
         model_class = model_registry[model_name]
-        model = model_class(model_name, model_path)
+        model = model_class(model_name, model_path, self.cfg)
         model.load_model()
         return model
 

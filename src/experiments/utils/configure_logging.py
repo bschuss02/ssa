@@ -42,9 +42,7 @@ def configure_logging(config: EvaluationConfig) -> None:
     if config.logging.show_terminal_logs:
         if config.logging.use_rich_logging:
             try:
-                console_handler = RichHandler(
-                    rich_tracebacks=True, show_time=True, show_path=False
-                )
+                console_handler = RichHandler(rich_tracebacks=True, show_time=True, show_path=False)
                 console_handler.setLevel(log_level)
                 handlers.append(console_handler)
             except ImportError:
@@ -79,9 +77,7 @@ def configure_logging(config: EvaluationConfig) -> None:
     # Configure basic logging to ensure proper propagation
     logging.basicConfig(
         level=log_level,
-        format="%(message)s"
-        if config.logging.use_rich_logging
-        else config.logging.log_format,
+        format="%(message)s" if config.logging.use_rich_logging else config.logging.log_format,
         datefmt="[%X]" if config.logging.use_rich_logging else None,
         handlers=handlers,
         force=True,
@@ -92,6 +88,55 @@ def configure_logging(config: EvaluationConfig) -> None:
         logger = logging.getLogger(logger_name)
         logger.handlers.clear()  # Remove any existing handlers
         logger.propagate = True  # Ensure propagation to root logger
+        logger.setLevel(log_level)  # Set explicit level for existing loggers
+
+    # Set up a custom logger factory to ensure new loggers are properly configured
+    # This ensures loggers created after configure_logging are also configured
+    original_getLogger = logging.getLogger
+
+    def configured_getLogger(name=None):
+        logger = original_getLogger(name)
+        # Configure the logger: set level, ensure propagation, clear direct handlers
+        # This works for both new loggers and existing ones that might have been
+        # created before configure_logging ran
+        if logger.level == logging.NOTSET or logger.level > log_level:
+            logger.setLevel(log_level)
+        if not logger.propagate:
+            logger.propagate = True
+        # Clear any direct handlers - we want all logs to go through root logger
+        logger.handlers.clear()
+        return logger
+
+    # Monkey-patch getLogger to use our configured version
+    logging.getLogger = configured_getLogger
+
+    # Re-configure any loggers that were already created (in case they were
+    # created before configure_logging ran but are retrieved after)
+    # This is a safety measure for edge cases - it ensures loggers created
+    # during module imports (before configure_logging runs) are properly configured
+    for logger_name in list(logging.root.manager.loggerDict.keys()):
+        logger = logging.getLogger(logger_name)
+        if logger.level == logging.NOTSET or logger.level > log_level:
+            logger.setLevel(log_level)
+        if not logger.propagate:
+            logger.propagate = True
+        logger.handlers.clear()
+
+    # Also ensure parent loggers in the hierarchy are configured
+    # This is important for loggers like "approaches.whisper.whisper_v3_medium"
+    # where parent loggers ("approaches", "approaches.whisper") might also need configuration
+    for logger_name in list(logging.root.manager.loggerDict.keys()):
+        parts = logger_name.split(".")
+        for i in range(1, len(parts)):
+            parent_name = ".".join(parts[:i])
+            if parent_name not in logging.root.manager.loggerDict:
+                # Create parent logger if it doesn't exist and configure it
+                parent_logger = logging.getLogger(parent_name)
+                if parent_logger.level == logging.NOTSET or parent_logger.level > log_level:
+                    parent_logger.setLevel(log_level)
+                if not parent_logger.propagate:
+                    parent_logger.propagate = True
+                parent_logger.handlers.clear()
 
 
 def get_logger(name: Optional[str] = None) -> logging.Logger:

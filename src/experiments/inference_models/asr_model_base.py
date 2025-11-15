@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 import torch
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from experiments.config.evaluation_config import EvaluationConfig
 
@@ -13,6 +13,8 @@ _log = getLogger(__name__)
 
 
 class TranscriptionInput(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     audio_array: Optional[np.ndarray] = None
     sample_rate: Optional[int] = None
     audio_path: Optional[Path] = None
@@ -34,7 +36,13 @@ class ASRModelBase(ABC):
         self.cfg = cfg
         self.model_name = model_name
         self.model_dir = model_dir
-        self.device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+        self.device = (
+            "cuda"
+            if torch.cuda.is_available()
+            else "mps"
+            if torch.backends.mps.is_available()
+            else "cpu"
+        )
         _log.info(f"Using device: {self.device}")
 
     @abstractmethod
