@@ -21,10 +21,6 @@ class EvaluationConfig(BaseModel):
     batch_size: int = Field(description="The batch size to use for inference")
     output_dir: Path = Field(description="The directory to save the evaluation results")
     results_dir: Path = Field(description="The directory to save the evaluation results")
-    asr_cache_dir: Path = Field(description="The directory to save the ASR cache")
-    use_asr_cache: bool = Field(description="Whether to use the ASR cache")
-    dataset_cache_dir: Path = Field(description="The directory to save the dataset cache")
-    load_datasets_from_cache: bool = Field(description="Whether to load datasets from cache")
     remove_punctuation: bool = Field(
         default=False,
         description="Whether to remove punctuation from ground truth and predicted transcripts before calculating metrics",

@@ -16,6 +16,6 @@ class ASRDatasetBase(ABC):
         logger.info(f"Initialized dataset {dataset_name} with path {dataset_path}")
 
     @abstractmethod
-    def load_dataset(self, load_from_cache: bool = True) -> Dataset:
+    def load_dataset(self) -> Dataset:
         """Outputs dataset where audio_file is a path to the audio file relative to the root directory of the repository"""
         pass

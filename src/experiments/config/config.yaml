@@ -19,10 +19,6 @@ max_samples_per_dataset: 1
 batch_size: 10
 output_dir: output
 results_dir: output/results
-dataset_cache_dir: output/dataset_cache
-asr_cache_dir: output/asr_cache
-use_asr_cache: true
-load_datasets_from_cache: false
 max_workers: 4
 
 data_preprocessing:

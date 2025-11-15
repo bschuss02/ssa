@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import numpy as np
 import torch
@@ -28,6 +28,7 @@ class ASRModelBase(ABC):
     model_name: str
     model_dir: Path
     device: str
+    audio_array_or_path: Literal["audio_array", "audio_path"]
 
     @abstractmethod
     def __init__(self, model_name: Path, model_dir: Path, cfg: EvaluationConfig):
