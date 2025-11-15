@@ -97,7 +97,7 @@ class Evaluator:
         start_time = time.time()
         audio_arrays, sampling_rates = self._load_audio_files(batch[AUDIO_FILE_COLUMN])
         sampling_rate = sampling_rates[0]
-        ground_truth_transcriptions = batch["unannotated_text"]
+        ground_truth_transcriptions = batch[GROUND_TRUTH_TRANSCRIPT_COLUMN]
 
         # Check cache for existing transcriptions if cache is enabled
         cached_transcriptions = None

@@ -17,7 +17,7 @@ class BbbenjiDataset(ASRDatasetBase):
         df = pl.read_parquet(df_path)
         original_length = len(df)
 
-        df = df.rename_columns({"sentence": "transcript"})
+        df = df.rename({"sentence": "transcript"})
 
         if self.cfg.bbbenji.subset == "fluent":
             df = df.filter(pl.col("speechPatterns") == "fluent")
