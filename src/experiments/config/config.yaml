@@ -30,3 +30,5 @@ logging:
   log_format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
   use_rich_logging: true
   show_terminal_logs: true
+bbbenji:
+  subset: stuttered

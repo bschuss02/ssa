@@ -25,6 +25,14 @@ class LoggerConfig(BaseModel):
     )
 
 
+class BbbenjiConfig(BaseModel):
+    """Configuration for Bbbenji dataset."""
+
+    subset: Literal["fluent", "stuttered", "all"] = Field(
+        default="all", description="The subset of the Bbbenji dataset to use"
+    )
+
+
 class EvaluationConfig(BaseModel):
     models: Dict[str, Path] = Field(
         description="A dictionary of model names and their paths"
@@ -63,4 +71,7 @@ class EvaluationConfig(BaseModel):
     # Logging configuration
     logging: LoggerConfig = Field(
         default_factory=LoggerConfig, description="Logging configuration settings"
+    )
+    bbbenji: BbbenjiConfig = Field(
+        default_factory=BbbenjiConfig, description="BBBenji configuration settings"
     )

@@ -1,9 +1,12 @@
 from abc import ABC, abstractmethod
+from logging import getLogger
 from pathlib import Path
-from typing import Dict, List
+from typing import List
 
 import numpy as np
 import torch
+
+_log = getLogger(__name__)
 
 
 class ASRModelBase(ABC):
@@ -22,6 +25,7 @@ class ASRModelBase(ABC):
             if torch.backends.mps.is_available()
             else "cpu"
         )
+        _log.info(f"Using device: {self.device}")
 
     @abstractmethod
     def load_model(self):
