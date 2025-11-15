@@ -6,7 +6,11 @@ import torch
 from transformers import AutoModelForCausalLM, AutoProcessor, GenerationConfig
 
 from experiments.config.evaluation_config import EvaluationConfig
-from experiments.inference_models.asr_model_base import ASRModelBase
+from experiments.inference_models.asr_model_base import (
+    ASRModelBase,
+    TranscriptionInput,
+    TranscriptionOutput,
+)
 from experiments.utils.configure_logging import logger
 
 
@@ -42,15 +46,51 @@ class Phi4MultimodalInstruct(ASRModelBase):
 
     def transcribe(
         self,
-        audio_arrays: List[np.ndarray],
-        sample_rate: int,
-    ) -> List[str]:
+        transcription_inputs: List[TranscriptionInput],
+    ) -> List[TranscriptionOutput]:
+        # Extract audio arrays and sample rates from TranscriptionInput objects
+        audio_arrays = []
+        sample_rates = []
+        
+        for input in transcription_inputs:
+            if input.audio_array is None:
+                raise ValueError("All transcription inputs must have an audio array")
+            if input.sample_rate is None:
+                raise ValueError("All transcription inputs must have a sample rate")
+            
+            # Ensure audio_array is a numpy array (convert from list if necessary)
+            audio_array = input.audio_array
+            if isinstance(audio_array, list):
+                audio_array = np.array(audio_array)
+            elif not isinstance(audio_array, np.ndarray):
+                raise TypeError(
+                    f"audio_array must be a numpy array or list, got {type(audio_array)}"
+                )
+            
+            audio_arrays.append(audio_array)
+            sample_rates.append(input.sample_rate)
+        
+        # Check if all sample rates are the same (required by current implementation)
+        if len(set(sample_rates)) > 1:
+            raise ValueError(
+                f"All audio files must have the same sample rate. Found: {set(sample_rates)}"
+            )
+        sample_rate = sample_rates[0]
+        
         prompt_string = self._build_prompt_string_from_messages(self.prompt_messages)
         logger.info(f"Prompt: {prompt_string}")
         inputs = self._prepare_inputs(prompt_string, audio_arrays, sample_rate)
         with torch.no_grad():
-            outputs = self._generate_outputs(inputs)
-        return outputs
+            transcriptions = self._generate_outputs(inputs)
+        
+        # Convert transcriptions to TranscriptionOutput objects with metadata
+        return [
+            TranscriptionOutput(
+                transcription=transcription,
+                metadata=input.metadata if input.metadata else {},
+            )
+            for transcription, input in zip(transcriptions, transcription_inputs)
+        ]
 
     def _build_prompt_string_from_messages(self, prompt_messages: List[Dict[str, str]]) -> str:
         user_prompt = "<|user|>"

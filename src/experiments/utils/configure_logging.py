@@ -3,6 +3,7 @@ from pathlib import Path
 from loguru import logger
 from rich.console import Console
 from rich.text import Text
+from rich.traceback import Traceback
 
 # Create a shared console instance for better coordination with progress bars
 # This console will be used by both logging and progress bars
@@ -56,11 +57,75 @@ def configure_logging() -> None:
         output.append(str(file_link), style="dim")
         console.print(output)
 
+        # If there's an exception traceback, extract and format it
+        if record["exception"] is not None:
+            try:
+                # Try to get exception info directly from record
+                exc_info = record["exception"]
+
+                # Try to access exception attributes
+                exc_type = None
+                exc_value = None
+                exc_traceback = None
+
+                if hasattr(exc_info, "type"):
+                    exc_type = exc_info.type
+                    exc_value = exc_info.value
+                    exc_traceback = exc_info.traceback
+                elif isinstance(exc_info, tuple) and len(exc_info) == 3:
+                    exc_type, exc_value, exc_traceback = exc_info
+                else:
+                    # Try getattr as fallback
+                    exc_type = getattr(exc_info, "type", None)
+                    exc_value = getattr(exc_info, "value", None)
+                    exc_traceback = getattr(exc_info, "traceback", None)
+
+                # If we have exception info, create Rich traceback
+                if exc_type is not None and exc_value is not None and exc_traceback is not None:
+                    rich_traceback = Traceback.from_exception(
+                        type=exc_type,
+                        value=exc_value,
+                        traceback=exc_traceback,
+                        show_locals=False,  # Hide local variables for cleaner output
+                        suppress=[
+                            "hydra/_internal",  # Suppress hydra internal framework frames
+                            "hydra/main.py",  # Suppress hydra main entry point
+                            "loguru",  # Suppress loguru internal frames
+                        ],
+                        max_frames=8,  # Limit number of frames shown (focus on user code)
+                    )
+                    console.print(rich_traceback)
+                else:
+                    # Fallback: Use loguru's formatted exception string
+                    # The format includes {exception}, so we can get it from the formatted message
+                    formatted = str(message)
+                    if "\n" in formatted:
+                        exception_part = formatted.split("\n", 1)[1]
+                        if exception_part.strip():
+                            exception_text = Text()
+                            exception_text.append(exception_part, style="red")
+                            console.print(exception_text)
+            except Exception:
+                # If anything fails, try to get exception from formatted message
+                try:
+                    formatted = str(message)
+                    if "\n" in formatted:
+                        exception_part = formatted.split("\n", 1)[1]
+                        if exception_part.strip():
+                            exception_text = Text()
+                            exception_text.append(exception_part, style="red")
+                            console.print(exception_text)
+                except Exception:
+                    # Final fallback: print the exception representation
+                    exception_text = Text()
+                    exception_text.append(f"Exception: {record['exception']}", style="red")
+                    console.print(exception_text)
+
     logger.add(
         rich_sink,
         level=log_level,
         colorize=False,  # Rich handles colors
-        format="{message}",  # We format manually in the sink
+        format="{message}\n{exception}",  # Include exception in format for parsing
     )
 
     # Add file handler

@@ -72,12 +72,12 @@ class Evaluator:
             try:
                 results = self._evaluate_batch(model, batch)
                 self.evaluation_results.extend(results)
-                progress.advance_sample_by(len(batch[AUDIO_FILE_COLUMN]))
+                progress.advance_sample_by(len(batch))
             except Exception as e:
-                logger.error(f"Error evaluating batch: {e}")
+                logger.exception("Error evaluating batch", e)
                 logger.error(f"Batch: {batch}")
                 # Skip this batch and continue with the next one
-                progress.advance_sample_by(len(batch[AUDIO_FILE_COLUMN]))
+                progress.advance_sample_by(len(batch))
                 continue
 
         progress.finish_sample_processing()
@@ -85,6 +85,10 @@ class Evaluator:
     def _evaluate_batch(self, model: ASRModelBase, batch: Dict) -> List[EvaluationResult]:
         start_time = time.time()
         ground_truth_transcriptions = batch[GROUND_TRUTH_TRANSCRIPT_COLUMN]
+
+        # Convert batch dict (column->list) to list of row dicts
+        batch_size = len(ground_truth_transcriptions)
+        batch_rows = [{key: batch[key][i] for key in batch.keys()} for i in range(batch_size)]
 
         # Prepare transcription inputs based on model type
         if model.audio_array_or_path == "audio_array":
@@ -94,7 +98,7 @@ class Evaluator:
                     audio_array=audio_array, sample_rate=sampling_rate, metadata=dataset_row
                 )
                 for audio_array, sampling_rate, dataset_row in zip(
-                    audio_arrays, sampling_rates, batch
+                    audio_arrays, sampling_rates, batch_rows
                 )
             ]
         elif model.audio_array_or_path == "audio_path":
@@ -102,7 +106,7 @@ class Evaluator:
                 TranscriptionInput(
                     audio_path=Path(dataset_row[AUDIO_FILE_COLUMN]), metadata=dataset_row
                 )
-                for dataset_row in batch
+                for dataset_row in batch_rows
             ]
         else:
             raise ValueError(f"Unknown audio_array_or_path: {model.audio_array_or_path}")
@@ -171,8 +175,8 @@ class Evaluator:
 
         # Create configuration dictionary for metadata
         config = {
-            "models": list(self.cfg.models.keys()),
-            "datasets": list(self.cfg.datasets.keys()),
+            "models": self.cfg.models,
+            "datasets": self.cfg.datasets,
             "max_samples_per_dataset": self.cfg.max_samples_per_dataset,
             "batch_size": self.cfg.batch_size,
             "output_dir": str(self.cfg.output_dir),
