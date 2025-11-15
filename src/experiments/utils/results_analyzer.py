@@ -32,9 +32,7 @@ class ResultsAnalyzer:
         """
         self.results_dir = Path(results_dir)
 
-    def analyze_and_visualize(
-        self, evaluation_results: List, config: Dict = None
-    ) -> Dict:
+    def analyze_and_visualize(self, evaluation_results: List, config: Dict = None) -> Dict:
         """
         Perform comprehensive analysis and visualization of evaluation results
 
@@ -101,15 +99,11 @@ class ResultsAnalyzer:
 
         # Model comparison plot
         model_comparison_path = charts_dir / "03_model_comparison_detailed.png"
-        visualizer.create_model_comparison_plot(
-            evaluation_results, model_comparison_path
-        )
+        visualizer.create_model_comparison_plot(evaluation_results, model_comparison_path)
 
         # Dataset analysis plot
         dataset_analysis_path = charts_dir / "04_dataset_analysis.png"
-        visualizer.create_dataset_analysis_plot(
-            evaluation_results, dataset_analysis_path
-        )
+        visualizer.create_dataset_analysis_plot(evaluation_results, dataset_analysis_path)
 
         # Error inspection plot
         error_inspection_path = charts_dir / "05_error_inspection_samples.png"
@@ -133,9 +127,7 @@ class ResultsAnalyzer:
         """Create documentation files including README and metadata"""
         # Create a README file explaining the visualizations
         readme_path = output_dir / "README.md"
-        self._create_visualization_readme(
-            readme_path, analysis_results, date_folder, time_folder
-        )
+        self._create_visualization_readme(readme_path, analysis_results, date_folder, time_folder)
 
         # Create evaluation metadata file
         metadata_path = output_dir / "evaluation_metadata.json"
@@ -163,10 +155,8 @@ class ResultsAnalyzer:
         # Statistical summary
         if "statistical_analysis" in analysis_results:
             stats = analysis_results["statistical_analysis"]
-            print(f"\n📈 STATISTICAL SUMMARY:")
-            print(
-                f"   Total samples analyzed: {stats['confidence_intervals']['wer']['n_samples']}"
-            )
+            print("\n📈 STATISTICAL SUMMARY:")
+            print(f"   Total samples analyzed: {stats['confidence_intervals']['wer']['n_samples']}")
             print(
                 f"   Outlier samples (>3σ): {stats['outlier_analysis']['outlier_count']} ({stats['outlier_analysis']['outlier_percentage']:.1f}%)"
             )
@@ -174,16 +164,14 @@ class ResultsAnalyzer:
         # Error analysis
         if "error_analysis" in analysis_results:
             error_analysis = analysis_results["error_analysis"]
-            print(f"\n⚠️  ERROR ANALYSIS:")
+            print("\n⚠️  ERROR ANALYSIS:")
             print(f"   High error threshold: {error_analysis.high_error_threshold:.3f}")
-            print(
-                f"   Samples above threshold: {error_analysis.samples_above_threshold}"
-            )
+            print(f"   Samples above threshold: {error_analysis.samples_above_threshold}")
 
         # Dataset analysis
         if "dataset_analysis" in analysis_results:
             dataset_analysis = analysis_results["dataset_analysis"]
-            print(f"\n📚 DATASET ANALYSIS:")
+            print("\n📚 DATASET ANALYSIS:")
             for dataset_name, analysis in dataset_analysis.items():
                 print(
                     f"   {dataset_name}: Difficulty={analysis['difficulty_score']:.3f}, Samples={analysis['total_samples']}"
@@ -250,7 +238,7 @@ This directory contains comprehensive analysis and visualization results from th
 
         if "dataset_analysis" in analysis_results:
             dataset_analysis = analysis_results["dataset_analysis"]
-            readme_content += f"""
+            readme_content += """
 ### Dataset Analysis
 """
             for dataset_name, analysis in dataset_analysis.items():
@@ -317,15 +305,9 @@ This directory contains comprehensive analysis and visualization results from th
             "configuration": config or {},
             "results_summary": {
                 "models_evaluated": list(set(r.model_name for r in evaluation_results)),
-                "datasets_evaluated": list(
-                    set(r.dataset_name for r in evaluation_results)
-                ),
-                "total_inference_time": sum(
-                    r.inference_time for r in evaluation_results
-                ),
-                "average_inference_time": sum(
-                    r.inference_time for r in evaluation_results
-                )
+                "datasets_evaluated": list(set(r.dataset_name for r in evaluation_results)),
+                "total_inference_time": sum(r.inference_time for r in evaluation_results),
+                "average_inference_time": sum(r.inference_time for r in evaluation_results)
                 / len(evaluation_results)
                 if evaluation_results
                 else 0,
@@ -374,10 +356,7 @@ This directory contains comprehensive analysis and visualization results from th
                     "mean": sum(values) / len(values),
                     "min": min(values),
                     "max": max(values),
-                    "std": (
-                        sum((x - sum(values) / len(values)) ** 2 for x in values)
-                        / len(values)
-                    )
+                    "std": (sum((x - sum(values) / len(values)) ** 2 for x in values) / len(values))
                     ** 0.5,
                     "median": sorted(values)[len(values) // 2],
                     "q25": sorted(values)[len(values) // 4],
@@ -442,15 +421,11 @@ This directory contains comprehensive analysis and visualization results from th
 
                         if metric == "wip":
                             # For WIP, higher is better
-                            improvement = (
-                                ((score1 - score2) / score2) * 100 if score2 != 0 else 0
-                            )
+                            improvement = ((score1 - score2) / score2) * 100 if score2 != 0 else 0
                             better_model = model1 if score1 > score2 else model2
                         else:
                             # For error metrics, lower is better
-                            improvement = (
-                                ((score2 - score1) / score2) * 100 if score2 != 0 else 0
-                            )
+                            improvement = ((score2 - score1) / score2) * 100 if score2 != 0 else 0
                             better_model = model1 if score1 < score2 else model2
 
                         model_comparisons[comparison_key][metric] = {
@@ -476,9 +451,7 @@ This directory contains comprehensive analysis and visualization results from th
                 "score_range": model_rankings[metric]["scores"][
                     model_rankings[metric]["ranking"][-1]
                 ]
-                - model_rankings[metric]["scores"][
-                    model_rankings[metric]["ranking"][0]
-                ],
+                - model_rankings[metric]["scores"][model_rankings[metric]["ranking"][0]],
                 "model_count": len(model_performance),
             }
 
@@ -491,8 +464,7 @@ This directory contains comprehensive analysis and visualization results from th
             "performance_summary": {
                 "best_overall_model": overall_ranking_dict["ranking"][0],
                 "best_model_per_metric": {
-                    metric: ranking["ranking"][0]
-                    for metric, ranking in model_rankings.items()
+                    metric: ranking["ranking"][0] for metric, ranking in model_rankings.items()
                 },
                 "performance_gaps": {
                     metric: {

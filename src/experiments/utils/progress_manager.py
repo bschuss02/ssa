@@ -1,11 +1,4 @@
-from rich.progress import (
-    BarColumn,
-    Progress,
-    SpinnerColumn,
-    TaskID,
-    TextColumn,
-    TimeElapsedColumn,
-)
+from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TextColumn, TimeElapsedColumn
 
 
 class ProgressManager:
@@ -30,9 +23,7 @@ class ProgressManager:
 
     def start_model_processing(self, total_models: int) -> None:
         """Start progress tracking for model processing."""
-        self.model_task = self.progress.add_task(
-            "[cyan]Processing models...", total=total_models
-        )
+        self.model_task = self.progress.add_task("[cyan]Processing models...", total=total_models)
 
     def start_dataset_processing(self, model_name: str, total_datasets: int) -> None:
         """Start progress tracking for dataset processing within a model."""

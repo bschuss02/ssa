@@ -215,8 +215,7 @@ def _rank_models(df: pl.DataFrame) -> PerformanceRanking:
             sorted_models = model_performance.sort(f"avg_{metric}")
 
         rankings = [
-            (row["model_name"], row[f"avg_{metric}"])
-            for row in sorted_models.iter_rows(named=True)
+            (row["model_name"], row[f"avg_{metric}"]) for row in sorted_models.iter_rows(named=True)
         ]
         model_rankings[metric] = rankings
         best_model_per_metric[metric] = rankings[0][0]
@@ -226,9 +225,7 @@ def _rank_models(df: pl.DataFrame) -> PerformanceRanking:
     for model in model_performance["model_name"]:
         total_rank = 0
         for metric in metrics:
-            rank = next(
-                i for i, (m, _) in enumerate(model_rankings[metric]) if m == model
-            )
+            rank = next(i for i, (m, _) in enumerate(model_rankings[metric]) if m == model)
             total_rank += rank
         model_scores[model] = total_rank / len(metrics)
 

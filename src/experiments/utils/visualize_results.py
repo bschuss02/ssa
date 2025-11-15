@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -122,7 +122,6 @@ class ASRResultsVisualizer:
         df = get_model_comparison_dataframe(evaluation_results)
 
         # Convert to pandas for easier pivot operation
-        import pandas as pd
 
         df_pandas = df.to_pandas()
 
@@ -150,9 +149,7 @@ class ASRResultsVisualizer:
             annot=True,
             fmt=".3f",
             cmap="RdYlGn_r" if metric != "wip" else "RdYlGn",
-            center=heatmap_data.mean().mean()
-            if not heatmap_data.isna().all().all()
-            else 0,
+            center=heatmap_data.mean().mean() if not heatmap_data.isna().all().all() else 0,
             cbar_kws={"label": f"Mean {metric.upper()}"},
         )
 
@@ -191,9 +188,7 @@ class ASRResultsVisualizer:
         sample_counts = [dataset_analysis[d]["total_samples"] for d in datasets]
 
         # Create scatter plot with size representing sample count
-        plt.scatter(
-            datasets, difficulty_scores, s=np.array(sample_counts) / 10, alpha=0.7
-        )
+        plt.scatter(datasets, difficulty_scores, s=np.array(sample_counts) / 10, alpha=0.7)
         plt.xticks(rotation=45, ha="right")
         plt.ylabel("Difficulty Score (Avg WER)")
         plt.xlabel("Dataset")
@@ -208,9 +203,7 @@ class ASRResultsVisualizer:
                 # If polyfit fails, just skip the trend line
                 pass
 
-    def _plot_inference_time_analysis(
-        self, evaluation_results: List[EvaluationResult]
-    ) -> None:
+    def _plot_inference_time_analysis(self, evaluation_results: List[EvaluationResult]) -> None:
         """Plot inference time analysis"""
         df = get_model_comparison_dataframe(evaluation_results)
 
@@ -224,9 +217,7 @@ class ASRResultsVisualizer:
         plt.ylabel("Average Inference Time (seconds)")
         plt.xlabel("Model")
 
-    def _plot_error_distribution(
-        self, evaluation_results: List[EvaluationResult]
-    ) -> None:
+    def _plot_error_distribution(self, evaluation_results: List[EvaluationResult]) -> None:
         """Plot error distribution across all samples"""
         # Extract WER values
         wer_values = [result.metrics.wer for result in evaluation_results]
@@ -251,15 +242,11 @@ class ASRResultsVisualizer:
 
         # Add vertical line for mean
         mean_wer = np.mean(wer_values)
-        plt.axvline(
-            mean_wer, color="red", linestyle="--", label=f"Mean: {mean_wer:.3f}"
-        )
+        plt.axvline(mean_wer, color="red", linestyle="--", label=f"Mean: {mean_wer:.3f}")
 
         # Add median line
         median_wer = np.median(wer_values)
-        plt.axvline(
-            median_wer, color="blue", linestyle=":", label=f"Median: {median_wer:.3f}"
-        )
+        plt.axvline(median_wer, color="blue", linestyle=":", label=f"Median: {median_wer:.3f}")
 
         plt.legend()
         plt.title("WER Distribution")
@@ -390,9 +377,7 @@ class ASRResultsVisualizer:
             plt.xticks(rotation=45, ha="right")
             plt.ylabel("High Error Samples")
             plt.xlabel("Model")
-            plt.title(
-                f"High Error Samples (> {error_analysis.high_error_threshold:.3f} WER)"
-            )
+            plt.title(f"High Error Samples (> {error_analysis.high_error_threshold:.3f} WER)")
 
     def _plot_statistical_summary(self, statistical_analysis: Dict) -> None:
         """Plot statistical summary"""
@@ -441,17 +426,13 @@ class ASRResultsVisualizer:
             max_samples: Maximum number of samples to display
             save_path: Optional path to save the plot
         """
-        error_samples = get_error_samples(
-            evaluation_results, error_threshold, max_samples
-        )
+        error_samples = get_error_samples(evaluation_results, error_threshold, max_samples)
 
         if not error_samples:
             print(f"No samples found with WER > {error_threshold}")
             return
 
-        fig, axes = plt.subplots(
-            len(error_samples), 1, figsize=(15, 4 * len(error_samples))
-        )
+        fig, axes = plt.subplots(len(error_samples), 1, figsize=(15, 4 * len(error_samples)))
         if len(error_samples) == 1:
             axes = [axes]
 
@@ -577,9 +558,7 @@ Metrics: WER={sample.metrics.wer:.3f}, MER={sample.metrics.mer:.3f},
 
         # 3. Average transcript length
         ax3 = axes[1, 0]
-        transcript_lengths = [
-            dataset_analysis[d]["avg_transcript_length"] for d in datasets
-        ]
+        transcript_lengths = [dataset_analysis[d]["avg_transcript_length"] for d in datasets]
         ax3.bar(datasets, transcript_lengths)
         ax3.set_title("Average Transcript Length")
         ax3.set_ylabel("Characters")
@@ -815,8 +794,7 @@ def _plot_metric_comparison(evaluation_results: List[EvaluationResult]) -> None:
     """Plot comparison of different metrics"""
     metrics = ["wer", "mer", "wil", "wip", "cer"]
     metric_values = {
-        metric: [getattr(r.metrics, metric) for r in evaluation_results]
-        for metric in metrics
+        metric: [getattr(r.metrics, metric) for r in evaluation_results] for metric in metrics
     }
 
     # Create box plot
@@ -858,9 +836,7 @@ def _plot_inference_time_distribution(
 
         # Add mean line
         mean_time = np.mean(times)
-        plt.axvline(
-            mean_time, color="red", linestyle="--", label=f"Mean: {mean_time:.2f}s"
-        )
+        plt.axvline(mean_time, color="red", linestyle="--", label=f"Mean: {mean_time:.2f}s")
         plt.legend()
 
 
@@ -926,9 +902,7 @@ def _plot_outlier_analysis(evaluation_results: List[EvaluationResult]) -> None:
     plt.xlabel("WER")
     plt.ylabel("Frequency")
     plt.legend()
-    plt.title(
-        f"Outliers: {len(outliers)}/{len(wers)} ({len(outliers) / len(wers) * 100:.1f}%)"
-    )
+    plt.title(f"Outliers: {len(outliers)}/{len(wers)} ({len(outliers) / len(wers) * 100:.1f}%)")
 
 
 def _plot_performance_trends(evaluation_results: List[EvaluationResult]) -> None:
