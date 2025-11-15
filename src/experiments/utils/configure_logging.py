@@ -2,6 +2,7 @@ from pathlib import Path
 
 from loguru import logger
 from rich.console import Console
+from rich.text import Text
 
 # Create a shared console instance for better coordination with progress bars
 # This console will be used by both logging and progress bars
@@ -22,9 +23,15 @@ def configure_logging() -> None:
         """Custom sink that uses Rich console for proper progress bar coordination."""
         record = message.record
 
-        # Format: time first, then message, then location (dimmed)
+        # Format: time first, then message, then clickable file location
         time_str = record["time"].strftime("%H:%M:%S")
-        location = f"{record['name']}:{record['function']}:{record['line']}"
+
+        # Create clickable file link for VSCode terminal
+        # VSCode terminal recognizes file paths in format: /absolute/path:line
+        file_path = Path(record["file"].path).resolve()
+        line_num = record["line"]
+        # Use absolute path with line number - VSCode terminal will make this clickable
+        file_link = f"{file_path}:{line_num}"
 
         # Use Rich's markup for colors
         level_colors = {
@@ -38,13 +45,16 @@ def configure_logging() -> None:
 
         # Use console.print() - Rich's console automatically coordinates with progress bars
         # when using the same console instance (which we do via ProgressManager)
-        # Format: time first, then message, then location
-        console.print(
-            f"[dim]{time_str}[/dim] | "
-            f"[{level_color}]{record['message']}[/{level_color}] "
-            f"[dim]| {location}[/dim]",
-            markup=True,
-        )
+        # Format: time first, then message, then clickable file location
+        # VSCode terminal will recognize absolute paths with line numbers as clickable links
+        # Use Text object for file path to prevent Rich from interpreting it as markup
+        output = Text()
+        output.append(time_str, style="dim")
+        output.append(" | ")
+        output.append(record["message"], style=level_color)
+        output.append(" | ")
+        output.append(str(file_link), style="dim")
+        console.print(output)
 
     logger.add(
         rich_sink,
