@@ -1,9 +1,9 @@
 """
 Results Analyzer Module
 
-This module handles the analysis, visualization, and reporting of ASR evaluation results.
+This module handles the analysis and reporting of ASR evaluation results.
 It provides comprehensive analysis capabilities including performance ranking, statistical analysis,
-error analysis, and dataset analysis with automated visualization generation.
+error analysis, and dataset analysis.
 """
 
 import json
@@ -13,15 +13,10 @@ from typing import Dict, List
 
 from experiments.utils.analyze_results import analyze_results
 from experiments.utils.configure_logging import logger
-from experiments.utils.visualize_results import (
-    ASRResultsVisualizer,
-    create_detailed_analysis_report,
-    create_quick_summary_plot,
-)
 
 
 class ResultsAnalyzer:
-    """Handles comprehensive analysis and visualization of ASR evaluation results"""
+    """Handles comprehensive analysis of ASR evaluation results"""
 
     def __init__(self, results_dir: str):
         """
@@ -34,7 +29,7 @@ class ResultsAnalyzer:
 
     def analyze_and_visualize(self, evaluation_results: List, config: Dict = None) -> Dict:
         """
-        Perform comprehensive analysis and visualization of evaluation results
+        Perform comprehensive analysis of evaluation results
 
         Args:
             evaluation_results: List of evaluation results to analyze
@@ -52,7 +47,7 @@ class ResultsAnalyzer:
         # Perform comprehensive analysis
         analysis_results = analyze_results(evaluation_results)
 
-        # Create organized output directory structure for visualizations
+        # Create organized output directory structure
         now = datetime.now()
         date_folder = now.strftime("%Y-%m-%d")
         time_folder = now.strftime("%H-%M-%S")
@@ -61,12 +56,11 @@ class ResultsAnalyzer:
         output_dir = self.results_dir / date_folder / time_folder
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Create subdirectories for different types of visualizations
-        charts_dir = output_dir / "charts"
-        charts_dir.mkdir(exist_ok=True)
-
-        # Create visualizations
-        self._create_visualizations(evaluation_results, charts_dir)
+        # Save evaluation dataframe as parquet
+        if "raw_data" in analysis_results:
+            parquet_path = output_dir / "evaluation_results.parquet"
+            analysis_results["raw_data"].write_parquet(parquet_path)
+            logger.info(f"Evaluation dataframe saved to {parquet_path}")
 
         # Create documentation files
         self._create_documentation(
@@ -78,42 +72,13 @@ class ResultsAnalyzer:
             config,
         )
 
-        logger.info(f"Analysis complete. Visualizations saved to {output_dir}")
+        logger.info(f"Analysis complete. Results saved to {output_dir}")
 
         # Print summary statistics
         self._print_analysis_summary(analysis_results)
 
         return analysis_results
 
-    def _create_visualizations(self, evaluation_results: List, charts_dir: Path):
-        """Create all visualization charts"""
-        visualizer = ASRResultsVisualizer()
-
-        # Quick summary plot
-        quick_summary_path = charts_dir / "01_quick_summary_overview.png"
-        create_quick_summary_plot(evaluation_results, quick_summary_path)
-
-        # Comprehensive dashboard
-        dashboard_path = charts_dir / "02_comprehensive_dashboard.png"
-        visualizer.create_comprehensive_dashboard(evaluation_results, dashboard_path)
-
-        # Model comparison plot
-        model_comparison_path = charts_dir / "03_model_comparison_detailed.png"
-        visualizer.create_model_comparison_plot(evaluation_results, model_comparison_path)
-
-        # Dataset analysis plot
-        dataset_analysis_path = charts_dir / "04_dataset_analysis.png"
-        visualizer.create_dataset_analysis_plot(evaluation_results, dataset_analysis_path)
-
-        # Error inspection plot
-        error_inspection_path = charts_dir / "05_error_inspection_samples.png"
-        visualizer.create_error_inspection_plot(
-            evaluation_results, error_threshold=0.3, save_path=error_inspection_path
-        )
-
-        # Detailed analysis report
-        detailed_report_path = charts_dir / "06_detailed_analysis_report.png"
-        create_detailed_analysis_report(evaluation_results, detailed_report_path)
 
     def _create_documentation(
         self,
@@ -186,24 +151,13 @@ class ResultsAnalyzer:
         date_folder: str,
         time_folder: str,
     ):
-        """Create a README file explaining the visualizations"""
+        """Create a README file explaining the analysis results"""
         readme_content = f"""# ASR Evaluation Analysis Results
 
-This directory contains comprehensive analysis and visualization results from the ASR evaluation.
+This directory contains comprehensive analysis results from the ASR evaluation.
 
 **Evaluation Date:** {date_folder}  
 **Evaluation Time:** {time_folder}
-
-## Generated Visualizations
-
-### 📊 Charts Directory (`charts/`)
-
-1. **01_quick_summary_overview.png** - Quick overview of key metrics and performance
-2. **02_comprehensive_dashboard.png** - Complete dashboard with all analysis plots
-3. **03_model_comparison_detailed.png** - Detailed model comparison across all metrics
-4. **04_dataset_analysis.png** - Dataset difficulty and characteristics analysis
-5. **05_error_inspection_samples.png** - High-error samples for detailed inspection
-6. **06_detailed_analysis_report.png** - Comprehensive analysis with 21 detailed visualizations
 
 ## Analysis Summary
 
@@ -245,39 +199,9 @@ This directory contains comprehensive analysis and visualization results from th
                 readme_content += f"- **{dataset_name}:** Difficulty={analysis['difficulty_score']:.3f}, Samples={analysis['total_samples']}\n"
 
         readme_content += """
-## How to Interpret the Results
-
-### Performance Heatmaps
-- **Red colors** indicate higher error rates (worse performance)
-- **Green colors** indicate lower error rates (better performance)
-- **WIP (Word Information Preserved)** uses opposite coloring (green = better)
-
-### Box Plots
-- Show the distribution of metrics across models
-- The box shows the interquartile range (25th to 75th percentile)
-- The line in the box is the median
-- Whiskers extend to the most extreme non-outlier points
-
-### Error Inspection
-- High-error samples are shown with ground truth vs predicted transcripts
-- Use these to understand where models struggle
-- Look for patterns in transcription errors
-
-### Correlation Matrix
-- Shows relationships between different metrics
-- Values range from -1 (perfect negative correlation) to +1 (perfect positive correlation)
-- Values close to 0 indicate no correlation
-
 ## Files Generated
-- All charts are saved as high-resolution PNG files (300 DPI)
-- Charts are optimized for both screen viewing and printing
-- File names are prefixed with numbers for logical ordering
-
-## Next Steps
-1. Review the comprehensive dashboard for overall performance
-2. Examine model comparison plots to identify strengths/weaknesses
-3. Check error inspection samples for problematic cases
-4. Use dataset analysis to understand difficulty variations
+- Evaluation metadata is saved as JSON for programmatic access
+- Analysis results are available in the metadata file
 """
 
         with open(readme_path, "w") as f:

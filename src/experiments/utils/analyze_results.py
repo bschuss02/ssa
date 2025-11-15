@@ -123,6 +123,14 @@ def _calculate_performance_summary(df: pl.DataFrame) -> List[ModelPerformanceSum
     )
 
     for row in grouped.iter_rows(named=True):
+        # Handle None standard deviations (occurs when sample_count == 1)
+        # Standard deviation is 0.0 when there's only one sample
+        std_wer = row["std_wer"] if row["std_wer"] is not None else 0.0
+        std_mer = row["std_mer"] if row["std_mer"] is not None else 0.0
+        std_wil = row["std_wil"] if row["std_wil"] is not None else 0.0
+        std_wip = row["std_wip"] if row["std_wip"] is not None else 0.0
+        std_cer = row["std_cer"] if row["std_cer"] is not None else 0.0
+
         summary = ModelPerformanceSummary(
             model_name=row["model_name"],
             dataset_name=row["dataset_name"],
@@ -132,11 +140,11 @@ def _calculate_performance_summary(df: pl.DataFrame) -> List[ModelPerformanceSum
             mean_wil=row["mean_wil"],
             mean_wip=row["mean_wip"],
             mean_cer=row["mean_cer"],
-            std_wer=row["std_wer"],
-            std_mer=row["std_mer"],
-            std_wil=row["std_wil"],
-            std_wip=row["std_wip"],
-            std_cer=row["std_cer"],
+            std_wer=std_wer,
+            std_mer=std_mer,
+            std_wil=std_wil,
+            std_wip=std_wip,
+            std_cer=std_cer,
             mean_inference_time=row["mean_inference_time"],
             total_inference_time=row["total_inference_time"],
         )
@@ -249,13 +257,20 @@ def _perform_statistical_analysis(df: pl.DataFrame) -> Dict:
         mean = np.mean(values)
         std = np.std(values, ddof=1)
         n = len(values)
-        ci_95 = 1.96 * std / np.sqrt(n)  # 95% confidence interval
+        # Handle case where n=1 (can't calculate confidence interval)
+        if n > 1 and not np.isnan(std) and std > 0:
+            ci_95 = 1.96 * std / np.sqrt(n)  # 95% confidence interval
+            ci_95_lower = mean - ci_95
+            ci_95_upper = mean + ci_95
+        else:
+            ci_95_lower = mean
+            ci_95_upper = mean
 
         confidence_intervals[metric] = {
             "mean": mean,
-            "std": std,
-            "ci_95_lower": mean - ci_95,
-            "ci_95_upper": mean + ci_95,
+            "std": std if not np.isnan(std) else 0.0,
+            "ci_95_lower": ci_95_lower,
+            "ci_95_upper": ci_95_upper,
             "n_samples": n,
             "median": np.median(values),
             "q25": np.percentile(values, 25),
@@ -265,11 +280,24 @@ def _perform_statistical_analysis(df: pl.DataFrame) -> Dict:
         }
 
     # Correlation analysis between metrics
-    correlation_matrix = df.select(metrics).corr()
+    # Skip correlation if we have fewer than 2 samples
+    if df.height >= 2:
+        correlation_matrix = df.select(metrics).corr()
+    else:
+        # Create identity matrix for single sample case (correlation undefined with n=1)
+        # Diagonal is 1.0 (perfect correlation with itself), off-diagonal is 0.0
+        # Rows and columns both correspond to metrics in the same order
+        correlation_data = {}
+        for metric in metrics:
+            correlation_data[metric] = [1.0 if m == metric else 0.0 for m in metrics]
+        correlation_matrix = pl.DataFrame(correlation_data)
 
     # Outlier detection (samples with WER > 3 standard deviations from mean)
     wer_mean = df["wer"].mean()
     wer_std = df["wer"].std()
+    # Handle None from Polars std() when n=1
+    if wer_std is None:
+        wer_std = 0.0
     outlier_threshold = wer_mean + 3 * wer_std
     outliers = df.filter(pl.col("wer") > outlier_threshold)
 
@@ -278,20 +306,26 @@ def _perform_statistical_analysis(df: pl.DataFrame) -> Dict:
     performance_distribution = {}
     for metric in metrics:
         values = df[metric].to_numpy()
+        mean_val = np.mean(values)
+        std_val = np.std(values, ddof=1)
+        std_val = std_val if not np.isnan(std_val) else 0.0
         performance_distribution[metric] = {
             "skewness": _calculate_skewness(values),
             "kurtosis": _calculate_kurtosis(values),
-            "coefficient_of_variation": std / mean if mean != 0 else 0,
+            "coefficient_of_variation": std_val / mean_val if mean_val != 0 else 0,
         }
 
     # Model consistency analysis
     model_consistency = {}
     for model_name in df["model_name"].unique():
         model_df = df.filter(pl.col("model_name") == model_name)
+        model_wer_std = model_df["wer"].std()
+        # Handle None from Polars std() when n=1
+        if model_wer_std is None:
+            model_wer_std = 0.0
+        model_wer_mean = model_df["wer"].mean()
         model_consistency[model_name] = {
-            "wer_cv": model_df["wer"].std() / model_df["wer"].mean()
-            if model_df["wer"].mean() != 0
-            else 0,
+            "wer_cv": model_wer_std / model_wer_mean if model_wer_mean != 0 else 0,
             "avg_inference_time": model_df["inference_time"].mean(),
             "total_samples": model_df.height,
         }

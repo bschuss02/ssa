@@ -45,8 +45,8 @@ class Evaluator:
                 self._evaluate_model(model, progress)
                 progress.advance_model()
 
-        # Save and analyze and visualize results
-        logger.info("Evaluation complete. Starting analysis and visualization...")
+        # Save and analyze results
+        logger.info("Evaluation complete. Starting analysis...")
         self._analyze_results(self.evaluation_results)
 
     def _evaluate_model(self, model: ASRModelBase, progress: ProgressManager):
@@ -171,7 +171,7 @@ class Evaluator:
         return dataset.load_dataset()
 
     def _analyze_results(self, evaluation_results: List[EvaluationResult]):
-        """Analyze and visualize evaluation results"""
+        """Analyze evaluation results"""
         from experiments.utils.results_analyzer import ResultsAnalyzer
 
         # Create configuration dictionary for metadata
