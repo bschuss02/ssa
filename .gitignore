@@ -13,3 +13,4 @@ data
 .env
 output
 logs
+local_models

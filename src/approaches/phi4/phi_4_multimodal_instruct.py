@@ -22,7 +22,9 @@ class Phi4MultimodalInstruct(ASRModelBase):
         super().__init__(model_name, cfg)
         self.model = None
         self.processor = None
-        self.huggingface_model_id = "microsoft/Phi-4-multimodal-instruct"
+        self.local_model_path = (
+            "/home/benji/dev/ssa/data/downloaded_models/Phi-4-multimodal-instruct"
+        )
         self.prompt_messages = [
             {
                 "role": "system",
@@ -30,17 +32,18 @@ class Phi4MultimodalInstruct(ASRModelBase):
             },
             {
                 "role": "user",
-                "content": "You are tasked with transcribing the speech from this audio recording. <|audio_1|>",
+                "content": "Transcribe the speech from this audio recording. The language is English. <|audio_1|>",
             },
         ]
 
     def load_model(self):
         logger.info(f"Loading model {self.model_name} to {self.device}")
+        logger.info(f"Local model path: {self.local_model_path}")
         self.processor = AutoProcessor.from_pretrained(
-            self.huggingface_model_id, trust_remote_code=True
+            self.local_model_path, trust_remote_code=True
         )
         self.model = AutoModelForCausalLM.from_pretrained(
-            self.huggingface_model_id,
+            self.local_model_path,
             trust_remote_code=True,
             torch_dtype="auto",
             device_map=self.device,
@@ -61,7 +64,6 @@ class Phi4MultimodalInstruct(ASRModelBase):
         )
 
         prompt_string = self._build_prompt_string_from_messages(self.prompt_messages)
-        logger.info(f"Prompt: {prompt_string}")
         inputs = self._prepare_inputs(prompt_string, audio_arrays, target_sample_rate)
 
         with torch.no_grad():
@@ -133,7 +135,7 @@ class Phi4MultimodalInstruct(ASRModelBase):
             raise
 
     def _generate_outputs(self, inputs: Dict[str, Any]) -> List[str]:
-        generation_config = GenerationConfig.from_pretrained(self.model_name)
+        generation_config = GenerationConfig.from_pretrained(self.local_model_path)
         generate_ids = self.model.generate(
             **inputs,
             max_new_tokens=self.cfg.max_output_tokens,
