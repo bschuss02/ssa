@@ -15,7 +15,7 @@ models:
 datasets:
   - bbbenji
 
-max_samples_per_dataset: 1
+max_samples_per_dataset: 20
 batch_size: 10
 output_dir: output
 results_dir: output/results
