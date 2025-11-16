@@ -1,4 +1,4 @@
-from experiments.inference_models.phi_4_multimodal_instruct import (
+from approaches.phi4.phi_4_multimodal_instruct import (
     Phi4MultimodalInstruct,
 )
 
