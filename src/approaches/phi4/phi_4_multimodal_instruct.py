@@ -42,12 +42,39 @@ class Phi4MultimodalInstruct(ASRModelBase):
         self.processor = AutoProcessor.from_pretrained(
             self.local_model_path, trust_remote_code=True
         )
+
+        # Use mixed precision (float16) for memory efficiency and speed
+        # bfloat16 is also an option if your GPU supports it (better numerical stability)
+        if self.device == "cuda":
+            # Check if bfloat16 is supported, otherwise use float16
+            if torch.cuda.is_bf16_supported():
+                torch_dtype = torch.bfloat16
+                logger.info("Using bfloat16 precision (better numerical stability)")
+            else:
+                torch_dtype = torch.float16
+                logger.info("Using float16 precision (memory efficient)")
+        else:
+            torch_dtype = torch.float32
+            logger.info("Using float32 precision (CPU/MPS)")
+
         self.model = AutoModelForCausalLM.from_pretrained(
             self.local_model_path,
             trust_remote_code=True,
-            torch_dtype="auto",
-            device_map=self.device,
+            torch_dtype=torch_dtype,
+            device_map="auto",  # Let transformers optimize device placement
+            low_cpu_mem_usage=True,  # Reduce peak memory during loading
         )
+
+        # Enable torch.compile for faster inference (PyTorch 2.0+)
+        # This can significantly speed up inference
+        try:
+            if hasattr(torch, "compile") and self.device == "cuda":
+                logger.info("Compiling model with torch.compile for faster inference")
+                self.model = torch.compile(self.model, mode="reduce-overhead")
+        except Exception as e:
+            logger.warning(f"Could not compile model: {e}. Continuing without compilation.")
+
+        self.model.eval()  # Set to evaluation mode
 
     def transcribe(
         self,
@@ -66,7 +93,8 @@ class Phi4MultimodalInstruct(ASRModelBase):
         prompt_string = self._build_prompt_string_from_messages(self.prompt_messages)
         inputs = self._prepare_inputs(prompt_string, audio_arrays, target_sample_rate)
 
-        with torch.no_grad():
+        # Use inference_mode() instead of no_grad() for better performance
+        with torch.inference_mode():
             transcriptions = self._generate_outputs(inputs)
 
         return [
@@ -136,11 +164,17 @@ class Phi4MultimodalInstruct(ASRModelBase):
 
     def _generate_outputs(self, inputs: Dict[str, Any]) -> List[str]:
         generation_config = GenerationConfig.from_pretrained(self.local_model_path)
+
+        # Optimize generation settings for speed and memory
         generate_ids = self.model.generate(
             **inputs,
             max_new_tokens=self.cfg.max_output_tokens,
             generation_config=generation_config,
             num_logits_to_keep=1,
+            use_cache=True,  # Enable KV cache for faster generation
+            do_sample=False,  # Use greedy decoding (faster than sampling)
+            pad_token_id=self.processor.tokenizer.pad_token_id
+            or self.processor.tokenizer.eos_token_id,
         )
 
         prompt_length = inputs["input_ids"].shape[1]
