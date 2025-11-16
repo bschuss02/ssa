@@ -1,6 +1,5 @@
 from typing import List
 
-import librosa
 import torch
 from transformers import WhisperForConditionalGeneration, WhisperProcessor
 
@@ -10,13 +9,13 @@ from experiments.inference_models.asr_model_base import (
     TranscriptionInput,
     TranscriptionOutput,
 )
+from experiments.utils.audio_utils import load_audio_files
 from experiments.utils.configure_logging import logger
 
 
 class WhisperV3Medium(ASRModelBase):
     def __init__(self, model_name: str, cfg: EvaluationConfig):
         super().__init__(model_name, cfg)
-        self.audio_array_or_path = "audio_path"
         self.model = None
         self.processor = None
 
@@ -30,15 +29,12 @@ class WhisperV3Medium(ASRModelBase):
     def transcribe(
         self, transcription_inputs: List[TranscriptionInput]
     ) -> List[TranscriptionOutput]:
-        audio_paths = [str(ti.audio_path) for ti in transcription_inputs]
+        audio_paths = [ti.audio_path for ti in transcription_inputs]
         if not all(audio_paths):
             raise ValueError("All transcription inputs must have an audio path")
 
-        # Load all audio files first
-        audio_arrays = []
-        for audio_path in audio_paths:
-            audio, sr = librosa.load(audio_path, sr=16000)
-            audio_arrays.append(audio)
+        # Load all audio files concurrently
+        audio_arrays, _ = load_audio_files(audio_paths, max_workers=self.cfg.max_workers, sr=16000)
 
         # Process all audio arrays in batch
         audio_inputs = self.processor(

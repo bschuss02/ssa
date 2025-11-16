@@ -1,10 +1,7 @@
-import concurrent
 import time
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
-import librosa
-import numpy as np
 from datasets import Dataset
 
 from experiments.config.evaluation_config import EvaluationConfig
@@ -90,26 +87,13 @@ class Evaluator:
         batch_size = len(ground_truth_transcriptions)
         batch_rows = [{key: batch[key][i] for key in batch.keys()} for i in range(batch_size)]
 
-        # Prepare transcription inputs based on model type
-        if model.audio_array_or_path == "audio_array":
-            audio_arrays, sampling_rates = self._load_audio_files(batch[AUDIO_FILE_COLUMN])
-            transcription_inputs = [
-                TranscriptionInput(
-                    audio_array=audio_array, sample_rate=sampling_rate, metadata=dataset_row
-                )
-                for audio_array, sampling_rate, dataset_row in zip(
-                    audio_arrays, sampling_rates, batch_rows
-                )
-            ]
-        elif model.audio_array_or_path == "audio_path":
-            transcription_inputs = [
-                TranscriptionInput(
-                    audio_path=Path(dataset_row[AUDIO_FILE_COLUMN]), metadata=dataset_row
-                )
-                for dataset_row in batch_rows
-            ]
-        else:
-            raise ValueError(f"Unknown audio_array_or_path: {model.audio_array_or_path}")
+        # Prepare transcription inputs with audio paths
+        transcription_inputs = [
+            TranscriptionInput(
+                audio_path=Path(dataset_row[AUDIO_FILE_COLUMN]), metadata=dataset_row
+            )
+            for dataset_row in batch_rows
+        ]
 
         # Run transcription
         transcription_outputs: List[TranscriptionOutput] = model.transcribe(transcription_inputs)
@@ -150,14 +134,6 @@ class Evaluator:
         logger.info(f"Metrics batch: {metrics_batch}")
 
         return evaluation_results
-
-    def _load_audio_files(self, audio_paths: List[str]) -> Tuple[List[np.ndarray], List[int]]:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=self.cfg.max_workers) as executor:
-            futures = [executor.submit(librosa.load, path) for path in audio_paths]
-            results = [future.result() for future in futures]
-            audio_arrays = [result[0] for result in results]
-            sampling_rates = [result[1] for result in results]
-        return audio_arrays, sampling_rates
 
     def _load_model(self, model_name: str) -> ASRModelBase:
         model_class = model_registry[model_name]

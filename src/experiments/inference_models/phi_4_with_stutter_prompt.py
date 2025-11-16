@@ -4,8 +4,8 @@ from experiments.inference_models.phi_4_multimodal_instruct import (
 
 
 class Phi4WithStutterPrompt(Phi4MultimodalInstruct):
-    def __init__(self, model_name: str, model_path: str):
-        super().__init__(model_name, model_path)
+    def __init__(self, model_name: str, cfg):
+        super().__init__(model_name, cfg)
         self.prompt_messages = [
             {
                 "role": "system",

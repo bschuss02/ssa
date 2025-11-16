@@ -11,6 +11,7 @@ from experiments.inference_models.asr_model_base import (
     TranscriptionInput,
     TranscriptionOutput,
 )
+from experiments.utils.audio_utils import load_audio_files
 from experiments.utils.configure_logging import logger
 
 
@@ -18,10 +19,12 @@ class Phi4MultimodalInstruct(ASRModelBase):
     model: Any
     processor: Any
 
-    def __init__(self, model_name: Path, model_dir: Path, cfg: EvaluationConfig):
-        super().__init__(model_name, model_dir, cfg)
+    def __init__(self, model_name: str, cfg: EvaluationConfig):
+        super().__init__(model_name, cfg)
         self.model = None
         self.processor = None
+        # model_name is expected to be a path to the model directory
+        self.model_dir = Path(model_name)
         self.prompt_messages = [
             {
                 "role": "system",
@@ -48,34 +51,19 @@ class Phi4MultimodalInstruct(ASRModelBase):
         self,
         transcription_inputs: List[TranscriptionInput],
     ) -> List[TranscriptionOutput]:
-        # Extract audio arrays and sample rates from TranscriptionInput objects
-        audio_arrays = []
-        sample_rates = []
+        # Load audio files from paths concurrently
+        audio_paths = [ti.audio_path for ti in transcription_inputs]
+        for audio_path in audio_paths:
+            if not audio_path.exists():
+                raise ValueError(f"Audio file does not exist: {audio_path}")
         
-        for input in transcription_inputs:
-            if input.audio_array is None:
-                raise ValueError("All transcription inputs must have an audio array")
-            if input.sample_rate is None:
-                raise ValueError("All transcription inputs must have a sample rate")
-            
-            # Ensure audio_array is a numpy array (convert from list if necessary)
-            audio_array = input.audio_array
-            if isinstance(audio_array, list):
-                audio_array = np.array(audio_array)
-            elif not isinstance(audio_array, np.ndarray):
-                raise TypeError(
-                    f"audio_array must be a numpy array or list, got {type(audio_array)}"
-                )
-            
-            audio_arrays.append(audio_array)
-            sample_rates.append(input.sample_rate)
-        
-        # Check if all sample rates are the same (required by current implementation)
-        if len(set(sample_rates)) > 1:
-            raise ValueError(
-                f"All audio files must have the same sample rate. Found: {set(sample_rates)}"
-            )
-        sample_rate = sample_rates[0]
+        # Resample all files to 16kHz for consistency (common sample rate for speech models)
+        # This handles varying input sample rates gracefully
+        target_sample_rate = 16000
+        audio_arrays, sample_rates = load_audio_files(
+            audio_paths, max_workers=self.cfg.max_workers, sr=target_sample_rate
+        )
+        sample_rate = target_sample_rate
         
         prompt_string = self._build_prompt_string_from_messages(self.prompt_messages)
         logger.info(f"Prompt: {prompt_string}")

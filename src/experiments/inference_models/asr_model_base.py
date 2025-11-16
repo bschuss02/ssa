@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Optional
 
-import numpy as np
 import torch
 from pydantic import BaseModel, ConfigDict
 
@@ -13,9 +12,7 @@ from experiments.utils.configure_logging import logger
 class TranscriptionInput(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    audio_array: Optional[np.ndarray] = None
-    sample_rate: Optional[int] = None
-    audio_path: Optional[Path] = None
+    audio_path: Path
     metadata: Optional[Dict[str, Any]] = None
 
 
@@ -27,7 +24,6 @@ class TranscriptionOutput(BaseModel):
 class ASRModelBase(ABC):
     model_name: str
     device: str
-    audio_array_or_path: Literal["audio_array", "audio_path"]
 
     @abstractmethod
     def __init__(self, model_name: str, cfg: EvaluationConfig):
