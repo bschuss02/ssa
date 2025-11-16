@@ -14,17 +14,23 @@ from experiments.utils.configure_logging import logger
 
 
 class WhisperV3Medium(ASRModelBase):
-    def __init__(self, model_name: str, cfg: EvaluationConfig, prompt: Optional[str] = None):
+    def __init__(
+        self,
+        model_name: str,
+        cfg: EvaluationConfig,
+        model_id: str = "openai/whisper-medium.en",
+        prompt: Optional[str] = None,
+    ):
         super().__init__(model_name, cfg)
         self.model = None
         self.processor = None
+        self.model_id = model_id
         self.prompt = prompt
 
     def load_model(self):
         logger.info(f"Loading model {self.model_name}")
-        model_id = "openai/whisper-medium.en"
-        self.processor = WhisperProcessor.from_pretrained(model_id)
-        self.model = WhisperForConditionalGeneration.from_pretrained(model_id)
+        self.processor = WhisperProcessor.from_pretrained(self.model_id)
+        self.model = WhisperForConditionalGeneration.from_pretrained(self.model_id)
         self.model.to(self.device)
 
     def transcribe(
