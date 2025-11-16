@@ -66,7 +66,9 @@ class Staccato(ASRModelBase):
         sample_rate = 16000
         examples = [
             dspy.Example(
-                audio_array, sample_rate, initial_transcription_output.transcription
+                audio_array=audio_array,
+                sample_rate=sample_rate,
+                initial_transcription=initial_transcription_output.transcription,
             ).with_inputs("audio_array", "sample_rate", "initial_transcription")
             for audio_array, initial_transcription_output in zip(
                 audio_arrays, initial_transcription_outputs

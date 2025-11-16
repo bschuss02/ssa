@@ -10,14 +10,14 @@ hydra:
 
 models:
   - staccato
-  # - whisper_v3_medium
+  - whisper_v3_medium
   # - phi_4_multimodal_instruct
   # phi_4_with_stutter_prompt: models/Phi-4-multimodal-instruct
 datasets:
   - bbbenji
 
-max_samples_per_dataset: 3
-batch_size: 1
+max_samples_per_dataset: 20
+batch_size: 10
 output_dir: output
 results_dir: output/results
 max_workers: 4
