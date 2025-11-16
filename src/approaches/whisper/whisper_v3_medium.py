@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 import torch
 from transformers import WhisperForConditionalGeneration, WhisperProcessor
@@ -14,10 +14,11 @@ from experiments.utils.configure_logging import logger
 
 
 class WhisperV3Medium(ASRModelBase):
-    def __init__(self, model_name: str, cfg: EvaluationConfig):
+    def __init__(self, model_name: str, cfg: EvaluationConfig, prompt: Optional[str] = None):
         super().__init__(model_name, cfg)
         self.model = None
         self.processor = None
+        self.prompt = prompt
 
     def load_model(self):
         logger.info(f"Loading model {self.model_name}")
@@ -42,9 +43,28 @@ class WhisperV3Medium(ASRModelBase):
         )
         audio_inputs = {k: v.to(self.device) for k, v in audio_inputs.items()}
 
+        # Prepare generate kwargs with prompt if provided
+        generate_kwargs = {}
+        if self.prompt is not None:
+            # Convert prompt text to token IDs
+            # Whisper expects the prompt tokens to come after the initial special tokens
+            # Format: [[position, token_id], ...] where position is the decoder position
+            prompt_token_ids = self.processor.tokenizer.encode(
+                self.prompt, add_special_tokens=False
+            )
+            # The decoder starts with special tokens at position 0, 1, etc.
+            # For prompts, we typically start after the language/task tokens (around position 1-2)
+            # We'll use position starting from 1 to place prompt tokens
+            forced_decoder_ids = [
+                [i + 1, prompt_token_ids[i]] for i in range(len(prompt_token_ids))
+            ]
+            generate_kwargs["forced_decoder_ids"] = forced_decoder_ids
+
         # Generate transcriptions for entire batch at once
         with torch.no_grad():
-            generated_ids = self.model.generate(input_features=audio_inputs["input_features"])
+            generated_ids = self.model.generate(
+                input_features=audio_inputs["input_features"], **generate_kwargs
+            )
 
         # Decode all transcriptions at once
         transcriptions = self.processor.batch_decode(generated_ids, skip_special_tokens=True)
