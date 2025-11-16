@@ -33,6 +33,10 @@ class EvaluationConfig(BaseModel):
         default=4,
         description="The maximum number of workers to use for loading audio files",
     )
+    max_output_tokens: int = Field(
+        default=1024,
+        description="The maximum number of output tokens to generate",
+    )
     bbbenji: BbbenjiConfig = Field(
         default_factory=BbbenjiConfig, description="BBBenji configuration settings"
     )

@@ -9,17 +9,18 @@ hydra:
     dir: .
 
 models:
-  - whisper_v3_medium
-  # phi_4_multimodal_instruct: models/Phi-4-multimodal-instruct
+  # - whisper_v3_medium
+  - phi_4_multimodal_instruct
   # phi_4_with_stutter_prompt: models/Phi-4-multimodal-instruct
 datasets:
   - bbbenji
 
-max_samples_per_dataset: 20
+max_samples_per_dataset: 10
 batch_size: 10
 output_dir: output
 results_dir: output/results
 max_workers: 4
+max_output_tokens: 1024
 
 data_preprocessing:
   remove_punctuation: false
