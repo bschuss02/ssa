@@ -20,12 +20,14 @@ class WhisperV3Medium(ASRModelBase):
         cfg: EvaluationConfig,
         model_id: str = "openai/whisper-medium.en",
         prompt: Optional[str] = None,
+        language: Optional[str] = None,
     ):
         super().__init__(model_name, cfg)
         self.model = None
         self.processor = None
         self.model_id = model_id
         self.prompt = prompt
+        self.language = language
 
     def load_model(self):
         logger.info(f"Loading model {self.model_name}")
@@ -74,7 +76,7 @@ class WhisperV3Medium(ASRModelBase):
 
         audio_inputs["input_features"] = input_features
 
-        # Prepare generate kwargs with prompt if provided
+        # Prepare generate kwargs with prompt and language if provided
         generate_kwargs = {}
         if self.prompt is not None:
             # Convert prompt text to token IDs
@@ -90,6 +92,8 @@ class WhisperV3Medium(ASRModelBase):
                 [i + 1, prompt_token_ids[i]] for i in range(len(prompt_token_ids))
             ]
             generate_kwargs["forced_decoder_ids"] = forced_decoder_ids
+        if self.language is not None:
+            generate_kwargs["language"] = self.language
 
         # Generate transcriptions for entire batch at once
         with torch.no_grad():
