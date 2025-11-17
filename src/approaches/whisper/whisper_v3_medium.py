@@ -49,6 +49,31 @@ class WhisperV3Medium(ASRModelBase):
         )
         audio_inputs = {k: v.to(self.device) for k, v in audio_inputs.items()}
 
+        # Whisper v3 multilingual requires mel input features to be exactly 3000 frames long
+        # Pad or truncate input_features to ensure they are exactly 3000 frames
+        input_features = audio_inputs["input_features"]
+        target_length = 3000
+        current_length = input_features.shape[-1]
+
+        if current_length < target_length:
+            # Pad with the minimum value of the input features (typical for mel spectrograms)
+            padding_length = target_length - current_length
+            # input_features shape is [batch_size, n_mels, sequence_length]
+            # We need to pad along the last dimension
+            padding_value = input_features.min().item()
+            padding = torch.full(
+                (input_features.shape[0], input_features.shape[1], padding_length),
+                padding_value,
+                device=input_features.device,
+                dtype=input_features.dtype,
+            )
+            input_features = torch.cat([input_features, padding], dim=-1)
+        elif current_length > target_length:
+            # Truncate if longer than 3000
+            input_features = input_features[:, :, :target_length]
+
+        audio_inputs["input_features"] = input_features
+
         # Prepare generate kwargs with prompt if provided
         generate_kwargs = {}
         if self.prompt is not None:
