@@ -4,7 +4,7 @@ import dspy
 import numpy as np
 from dotenv import load_dotenv
 
-from approaches.whisper.whisper_v3_medium import WhisperV3Medium
+from approaches.whisper.whisper_v3_medium_english import WhisperV3MediumEnglish
 from experiments.config.evaluation_config import EvaluationConfig
 from experiments.inference_models.asr_model_base import (
     ASRModelBase,
@@ -47,7 +47,7 @@ class Staccato(ASRModelBase):
         load_dotenv()
 
     def load_model(self):
-        self.whisper_model = WhisperV3Medium("whisper_v3_medium", self.cfg)
+        self.whisper_model = WhisperV3MediumEnglish("whisper_v3_medium_english", self.cfg)
         self.whisper_model.load_model()
 
         dspy.configure(lm=dspy.LM(self.lm))

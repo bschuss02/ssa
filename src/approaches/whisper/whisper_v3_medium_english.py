@@ -13,14 +13,14 @@ from experiments.utils.audio_utils import load_audio_files
 from experiments.utils.configure_logging import logger
 
 
-class WhisperV3Medium(ASRModelBase):
+class WhisperV3MediumEnglish(ASRModelBase):
     def __init__(
         self,
         model_name: str,
         cfg: EvaluationConfig,
         model_id: str = "openai/whisper-medium.en",
         prompt: Optional[str] = None,
-        language: Optional[str] = None,
+        language: Optional[str] = "en",
     ):
         super().__init__(model_name, cfg)
         self.model = None

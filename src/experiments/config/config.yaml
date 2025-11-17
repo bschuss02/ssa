@@ -9,9 +9,9 @@ hydra:
     dir: .
 
 models:
-  - whisper_v3_medium_multilingual
+  - whisper_v3_chinese
   # - staccato
-  - whisper_v3_medium
+  - whisper_v3_medium_english
   # - phi_4_multimodal_instruct
   # phi_4_with_stutter_prompt: models/Phi-4-multimodal-instruct
 datasets:
