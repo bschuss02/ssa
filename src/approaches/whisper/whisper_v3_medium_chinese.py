@@ -1,10 +1,10 @@
 from typing import Optional
 
-from approaches.whisper.whisper_v3_medium_english import WhisperV3MediumEnglish
+from approaches.whisper.whisper_v3_medium import WhisperV3Medium
 from experiments.config.evaluation_config import EvaluationConfig
 
 
-class WhisperV3MediumChinese(WhisperV3MediumEnglish):
+class WhisperV3MediumChinese(WhisperV3Medium):
     def __init__(
         self,
         model_name: str,
