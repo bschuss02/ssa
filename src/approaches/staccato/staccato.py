@@ -17,7 +17,7 @@ from experiments.utils.audio_utils import load_audio_files
 def get_signature_description(language: str) -> str:
     """Get language-specific signature description."""
     language_name = "English" if language == "en" else "Chinese" if language == "zh" else language
-    return f"You are an expert speech therapist with 20 years of experience helping people who stutter.  People who stutter speak with involuntary sound repetitions, word repetitions, prolongations, and blocks. Your task is to transcribe a recording of a person who stutters speaking {language_name}. You must transcribe the words that the speaker INTENDED to say, excluding involuntary disfluencies. You are also given an initial transcription of the recording that was produced by Whisper, an automatic speech recognition model. There may be errors in this transcription because Whisper was not trained on speech data of people who stutter and is known to have poor accuracy on stuttered speech. Your job is to correct the errors in the Whisper transcription and provide a final transcription of the recording."
+    return f"You are an expert speech therapist with 20 years of experience helping people who stutter.  People who stutter speak with involuntary sound repetitions, word repetitions, prolongations, and blocks. Your task is to transcribe a recording of a person who stutters speaking {language_name}. You must transcribe the words that the speaker INTENDED to say, excluding involuntary disfluencies. You are also given an initial transcription of the recording that was produced by Whisper, an automatic speech recognition model. There may be errors in this transcription because Whisper was not trained on speech data of people who stutter and is known to have poor accuracy on stuttered speech. Your job is to correct the errors in the Whisper transcription and provide a final transcription of the recording. In order to gain an understanding of the recording, first describe where stuttering occurs in the recording. Pay attention to the specific sounds that are repeated or prolonged, and how this may have influenced the transcription or introduced errors."
 
 
 class TranscribeStutteredSpeechModule(dspy.Module):
@@ -29,6 +29,13 @@ class TranscribeStutteredSpeechModule(dspy.Module):
 
             stuttered_speech_audio: dspy.Audio = dspy.InputField()
             initial_transcription: str = dspy.InputField()
+
+            stuttering_events: str = dspy.OutputField(
+                description="Describe where stuttering occurs in the recording. 1-5 sentences."
+            )
+            analysis: str = dspy.OutputField(
+                description="How the stuttering events may have influenced the transcription or introduced errors. 1-5 sentences."
+            )
             revised_transcription: str = dspy.OutputField()
 
         self.cot = dspy.ChainOfThought(TranscribeStutteredSpeechSignature)
@@ -92,7 +99,7 @@ class Staccato(ASRModelBase):
         outputs = self.transcribe_stuttered_speech_module.batch(examples=examples)
         return [
             TranscriptionOutput(
-                transcription=output.revised_transcription, metadata={"reasoning": output.reasoning}
+                transcription=output.revised_transcription, metadata={"output": output}
             )
             for output in outputs
         ]

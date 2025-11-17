@@ -12,6 +12,21 @@ class BbbenjiConfig(BaseModel):
     )
 
 
+class EvaluationPreprocessingConfig(BaseModel):
+    remove_punctuation: bool = Field(
+        default=False,
+        description="Whether to remove punctuation from ground truth and predicted transcripts before calculating metrics",
+    )
+    make_lowercase: bool = Field(
+        default=False,
+        description="Whether to convert ground truth and predicted transcripts to lowercase before calculating metrics",
+    )
+    remove_spaces: bool = Field(
+        default=False,
+        description="Whether to remove spaces from ground truth and predicted transcripts before calculating metrics",
+    )
+
+
 class EvaluationConfig(BaseModel):
     models: List[str] = Field(description="A list of model names")
     datasets: List[str] = Field(description="A list of dataset names")
@@ -21,13 +36,9 @@ class EvaluationConfig(BaseModel):
     batch_size: int = Field(description="The batch size to use for inference")
     output_dir: Path = Field(description="The directory to save the evaluation results")
     results_dir: Path = Field(description="The directory to save the evaluation results")
-    remove_punctuation: bool = Field(
-        default=False,
-        description="Whether to remove punctuation from ground truth and predicted transcripts before calculating metrics",
-    )
-    make_lowercase: bool = Field(
-        default=False,
-        description="Whether to convert ground truth and predicted transcripts to lowercase before calculating metrics",
+    eval_preprocessing: EvaluationPreprocessingConfig = Field(
+        default_factory=EvaluationPreprocessingConfig,
+        description="Evaluation preprocessing configuration",
     )
     max_workers: int = Field(
         default=4,

@@ -77,6 +77,8 @@ class WhisperV3Medium(ASRModelBase):
         audio_inputs["input_features"] = input_features
 
         # Prepare generate kwargs with prompt and language if provided
+        # Note: English-only models (with .en suffix) don't accept language parameter
+        is_english_only = ".en" in self.model_id
         generate_kwargs = {}
         if self.prompt is not None:
             # Convert prompt text to token IDs
@@ -92,7 +94,7 @@ class WhisperV3Medium(ASRModelBase):
                 [i + 1, prompt_token_ids[i]] for i in range(len(prompt_token_ids))
             ]
             generate_kwargs["forced_decoder_ids"] = forced_decoder_ids
-        if self.language is not None:
+        if self.language is not None and not is_english_only:
             generate_kwargs["language"] = self.language
 
         # Generate transcriptions for entire batch at once
