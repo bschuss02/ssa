@@ -15,7 +15,8 @@ models:
   # - phi_4_multimodal_instruct
   # phi_4_with_stutter_prompt: models/Phi-4-multimodal-instruct
 datasets:
-  - bbbenji
+  # - bbbenji
+  - as70
 
 max_samples_per_dataset: 20
 batch_size: 10
