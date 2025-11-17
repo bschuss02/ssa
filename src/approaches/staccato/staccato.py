@@ -99,7 +99,11 @@ class Staccato(ASRModelBase):
         outputs = self.transcribe_stuttered_speech_module.batch(examples=examples)
         return [
             TranscriptionOutput(
-                transcription=output.revised_transcription, metadata={"output": output}
+                transcription=output.revised_transcription,
+                metadata={
+                    "output": output,
+                    "whisper_output": initial_transcription_output.transcription,
+                },
             )
-            for output in outputs
+            for output, initial_transcription_output in zip(outputs, initial_transcription_outputs)
         ]

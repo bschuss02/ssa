@@ -1,5 +1,7 @@
+import random
 from typing import List, Optional
 
+import numpy as np
 import torch
 from transformers import WhisperForConditionalGeneration, WhisperProcessor
 
@@ -28,6 +30,16 @@ class WhisperV3Medium(ASRModelBase):
         self.model_id = model_id
         self.prompt = prompt
         self.language = language
+        self._initialize_random_seed(42)
+
+    def _initialize_random_seed(self, random_seed: int):
+        torch.manual_seed(random_seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(random_seed)
+        if torch.backends.mps.is_available():
+            torch.backends.mps.manual_seed(random_seed)
+        np.random.seed(random_seed)
+        random.seed(random_seed)
 
     def load_model(self):
         logger.info(f"Loading model {self.model_name}")
