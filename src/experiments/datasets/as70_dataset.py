@@ -16,6 +16,10 @@ class AS70Dataset(ASRDatasetBase):
         df_path = Path("data/as70/as70.parquet")
         df = pl.read_parquet(df_path)
 
+        # shuffle the dataset
+        df = df.sample(fraction=1.0, seed=42)
+        logger.info(f"Shuffled dataset with {len(df)} samples")
+
         df = df.rename({"unannotated_text": "transcript"})
 
         if self.cfg.max_samples_per_dataset > 0:

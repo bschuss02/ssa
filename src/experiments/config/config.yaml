@@ -9,7 +9,7 @@ hydra:
     dir: .
 
 models:
-  # - whisper_v3_medium_chinese
+  - whisper_v3_medium_chinese
   - staccato_chinese
   # - whisper_v3_medium_english
   # - phi_4_multimodal_instruct
@@ -18,7 +18,7 @@ datasets:
   # - bbbenji
   - as70
 
-max_samples_per_dataset: 30
+max_samples_per_dataset: 100
 batch_size: 5
 output_dir: output
 results_dir: output/results
