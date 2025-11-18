@@ -27,6 +27,23 @@ class EvaluationPreprocessingConfig(BaseModel):
     )
 
 
+class CacheConfig(BaseModel):
+    """Configuration for transcription caching."""
+
+    enabled: bool = Field(
+        default=False,
+        description="Whether to enable caching of transcription results",
+    )
+    cache_dir: Path = Field(
+        default=Path("output/cache"),
+        description="Directory where the cache will be stored",
+    )
+    model_version: str = Field(
+        default="v1",
+        description="Model version string to include in cache keys. Increment this when you want to invalidate all previous cache entries (e.g., when changing models).",
+    )
+
+
 class EvaluationConfig(BaseModel):
     models: List[str] = Field(description="A list of model names")
     datasets: List[str] = Field(description="A list of dataset names")
@@ -50,4 +67,7 @@ class EvaluationConfig(BaseModel):
     )
     bbbenji: BbbenjiConfig = Field(
         default_factory=BbbenjiConfig, description="BBBenji configuration settings"
+    )
+    cache: CacheConfig = Field(
+        default_factory=CacheConfig, description="Cache configuration settings"
     )

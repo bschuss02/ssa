@@ -32,3 +32,8 @@ eval_preprocessing:
 
 bbbenji:
   subset: stuttered
+
+cache:
+  enabled: true
+  cache_dir: output/.cache
+  model_version: v1 # Increment this (e.g., v2, v3) to invalidate all previous cache entries when changing models

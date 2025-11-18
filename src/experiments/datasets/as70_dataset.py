@@ -25,7 +25,7 @@ class AS70Dataset(ASRDatasetBase):
         if self.cfg.max_samples_per_dataset > 0:
             df = df.head(self.cfg.max_samples_per_dataset)
             logger.info(
-                f"Filtered Bbbenji dataset to {len(df)} samples for max_samples_per_dataset: {self.cfg.max_samples_per_dataset}"
+                f"Filtered AS70 dataset to {len(df)} samples for max_samples_per_dataset: {self.cfg.max_samples_per_dataset}"
             )
 
         arrow_table = df.to_arrow()

@@ -1,6 +1,8 @@
 import random
+from pathlib import Path
 from typing import List, Optional
 
+import diskcache
 import numpy as np
 import torch
 from transformers import WhisperForConditionalGeneration, WhisperProcessor
@@ -32,6 +34,15 @@ class WhisperV3Medium(ASRModelBase):
         self.language = language
         self._initialize_random_seed(42)
 
+        # Initialize cache if enabled
+        self.cache = None
+        self.model_version = cfg.cache.model_version if cfg.cache.enabled else None
+        if cfg.cache.enabled:
+            cache_dir = Path(cfg.cache.cache_dir)
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            self.cache = diskcache.Cache(str(cache_dir))
+            logger.info(f"Cache enabled at {cache_dir} with model_version={self.model_version}")
+
     def _initialize_random_seed(self, random_seed: int):
         torch.manual_seed(random_seed)
         if torch.cuda.is_available():
@@ -41,15 +52,27 @@ class WhisperV3Medium(ASRModelBase):
         np.random.seed(random_seed)
         random.seed(random_seed)
 
-    def load_model(self):
-        logger.info(f"Loading model {self.model_name}")
-        self.processor = WhisperProcessor.from_pretrained(self.model_id)
-        self.model = WhisperForConditionalGeneration.from_pretrained(self.model_id)
-        self.model.to(self.device)
+    def _generate_cache_key(
+        self, audio_paths: List[Path], model_id: str, prompt: Optional[str], language: Optional[str]
+    ) -> tuple:
+        """Generate a cache key from audio paths, model_id, prompt, language, and model_version.
 
-    def transcribe(
+        Returns a tuple that diskcache will automatically hash.
+        """
+        # diskcache automatically hashes tuples/keys, so we can use a simple tuple
+        # Include model_version in the key so changing it invalidates old cache entries
+        return (
+            tuple(sorted(str(p) for p in audio_paths)),
+            model_id,
+            prompt,
+            language,
+            self.model_version,
+        )
+
+    def _transcribe_impl(
         self, transcription_inputs: List[TranscriptionInput]
     ) -> List[TranscriptionOutput]:
+        """Internal implementation of transcription without caching."""
         audio_paths = [ti.audio_path for ti in transcription_inputs]
         if not all(audio_paths):
             raise ValueError("All transcription inputs must have an audio path")
@@ -123,3 +146,54 @@ class WhisperV3Medium(ASRModelBase):
         return [
             TranscriptionOutput(transcription=result["text"], metadata=result) for result in results
         ]
+
+    def load_model(self):
+        logger.info(f"Loading model {self.model_name}")
+        self.processor = WhisperProcessor.from_pretrained(self.model_id)
+        self.model = WhisperForConditionalGeneration.from_pretrained(self.model_id)
+        self.model.to(self.device)
+
+    def transcribe(
+        self, transcription_inputs: List[TranscriptionInput]
+    ) -> List[TranscriptionOutput]:
+        """Transcribe audio files with optional caching."""
+        audio_paths = [ti.audio_path for ti in transcription_inputs]
+
+        # Check cache if enabled
+        if self.cache is not None:
+            cache_key = self._generate_cache_key(
+                audio_paths, self.model_id, self.prompt, self.language
+            )
+
+            # Try to get from cache using diskcache's built-in get() method
+            cached_value = self.cache.get(cache_key)
+            if cached_value is not None:
+                logger.debug(f"Cache hit for key {str(cache_key)[:50]}...")
+                # Handle both new format (list) and legacy format (dict with results key)
+                if isinstance(cached_value, list):
+                    cached_results = cached_value
+                elif isinstance(cached_value, dict) and "results" in cached_value:
+                    cached_results = cached_value["results"]
+                else:
+                    cached_results = []
+                # Reconstruct TranscriptionOutput objects from cached data
+                return [TranscriptionOutput(**item) for item in cached_results]
+
+            logger.debug(f"Cache miss for key {str(cache_key)[:50]}...")
+
+        # Perform transcription
+        results = self._transcribe_impl(transcription_inputs)
+
+        # Store in cache if enabled
+        if self.cache is not None:
+            cache_key = self._generate_cache_key(
+                audio_paths, self.model_id, self.prompt, self.language
+            )
+            # Serialize results for caching
+            # Model version is already part of the cache key, so no need for timestamps
+            cache_value = [result.model_dump() for result in results]
+            # Use diskcache's built-in set() method
+            self.cache.set(cache_key, cache_value)
+            logger.debug(f"Cached results for key {str(cache_key)[:50]}...")
+
+        return results
