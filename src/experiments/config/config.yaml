@@ -18,12 +18,12 @@ datasets:
   # - bbbenji
   - as70
 
-max_samples_per_dataset: 100
+max_samples_per_dataset: 300
 batch_size: 5
 output_dir: output
 results_dir: output/results
 max_workers: 4
-max_output_tokens: 1024
+max_output_tokens: 2000
 
 eval_preprocessing:
   remove_punctuation: true

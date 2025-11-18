@@ -17,7 +17,7 @@ class AS70Dataset(ASRDatasetBase):
         df = pl.read_parquet(df_path)
 
         # shuffle the dataset
-        df = df.sample(fraction=1.0, seed=42)
+        df = df.sample(fraction=1.0, shuffle=True, seed=42)
         logger.info(f"Shuffled dataset with {len(df)} samples")
 
         df = df.rename({"unannotated_text": "transcript"})
