@@ -19,10 +19,10 @@ class ModelPerformanceSummary(BaseModel):
 
 
 class PerformanceRanking(BaseModel):
-    """Ranking of models by WER"""
+    """Ranking of models by CER"""
 
     best_model: str
-    model_rankings: List[Tuple[str, float]]  # [(model, wer_score)]
+    model_rankings: List[Tuple[str, float]]  # [(model, cer_score)]
 
 
 def analyze_results(evaluation_results: List[EvaluationResult]) -> Dict:
@@ -155,12 +155,12 @@ def _calculate_performance_summary(df: pl.DataFrame) -> List[ModelPerformanceSum
 
 
 def _rank_models(df: pl.DataFrame) -> PerformanceRanking:
-    """Rank models by WER"""
-    model_performance = df.group_by("model_name").agg([pl.col("wer").mean().alias("avg_wer")])
+    """Rank models by CER"""
+    model_performance = df.group_by("model_name").agg([pl.col("cer").mean().alias("avg_cer")])
 
-    # Sort by WER (lower is better)
-    sorted_models = model_performance.sort("avg_wer")
-    rankings = [(row["model_name"], row["avg_wer"]) for row in sorted_models.iter_rows(named=True)]
+    # Sort by CER (lower is better)
+    sorted_models = model_performance.sort("avg_cer")
+    rankings = [(row["model_name"], row["avg_cer"]) for row in sorted_models.iter_rows(named=True)]
 
     best_model = rankings[0][0] if rankings else ""
 
