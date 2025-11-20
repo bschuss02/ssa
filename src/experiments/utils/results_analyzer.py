@@ -312,6 +312,14 @@ class ResultsAnalyzer:
         lines.append(diff_markers)
         lines.append("")
 
+        # Add initial Whisper transcription if available
+        if cot_reasoning and cot_reasoning.get("whisper_output"):
+            lines.append("-" * 80)
+            lines.append("INITIAL WHISPER TRANSCRIPTION")
+            lines.append("-" * 80)
+            lines.append(cot_reasoning["whisper_output"])
+            lines.append("")
+
         lines.append("")
         lines.append("=" * 80)
 

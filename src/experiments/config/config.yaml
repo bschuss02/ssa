@@ -18,7 +18,7 @@ datasets:
   # - bbbenji
   - as70
 
-max_samples_per_dataset: 300
+max_samples_per_dataset: 50
 batch_size: 5
 output_dir: output
 results_dir: output/results
