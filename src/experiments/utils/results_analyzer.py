@@ -245,6 +245,29 @@ class ResultsAnalyzer:
         lines.append(f"  CER (Character Error Rate): {result.metrics.cer:.4f}")
         lines.append("")
 
+        # Chain of Thought reasoning (if available)
+        cot_reasoning = self._extract_chain_of_thought(result.metadata)
+        if cot_reasoning:
+            lines.append("-" * 80)
+            lines.append("CHAIN OF THOUGHT REASONING")
+            lines.append("-" * 80)
+            if cot_reasoning.get("reasoning"):
+                lines.append("Reasoning:")
+                lines.append(cot_reasoning["reasoning"])
+                lines.append("")
+            if cot_reasoning.get("stuttering_events"):
+                lines.append("Stuttering Events:")
+                lines.append(cot_reasoning["stuttering_events"])
+                lines.append("")
+            if cot_reasoning.get("analysis"):
+                lines.append("Analysis:")
+                lines.append(cot_reasoning["analysis"])
+                lines.append("")
+            if cot_reasoning.get("whisper_output"):
+                lines.append("Initial Whisper Transcription:")
+                lines.append(cot_reasoning["whisper_output"])
+                lines.append("")
+
         # Annotated text (if available)
         annotated_text = None
         if result.metadata and "annotated_text" in result.metadata:
@@ -369,3 +392,35 @@ class ResultsAnalyzer:
         diff_markers = " ".join(diff_markers_list)
 
         return aligned_gt, aligned_pred, diff_markers
+
+    def _extract_chain_of_thought(self, metadata: Dict) -> Dict:
+        """
+        Extract Chain of Thought reasoning from metadata if available
+
+        Args:
+            metadata: Result metadata dictionary
+
+        Returns:
+            Dictionary with chain of thought fields, or empty dict if not available
+        """
+        if not metadata:
+            return {}
+
+        cot_info = {}
+
+        # Check for dspy output object (from staccato model)
+        if "output" in metadata:
+            output = metadata["output"]
+            # Try to extract attributes from the output object
+            if hasattr(output, "stuttering_events"):
+                cot_info["stuttering_events"] = str(output.stuttering_events)
+            if hasattr(output, "analysis"):
+                cot_info["analysis"] = str(output.analysis)
+            if hasattr(output, "reasoning"):
+                cot_info["reasoning"] = str(output.reasoning)
+
+        # Check for whisper output (initial transcription)
+        if "whisper_output" in metadata:
+            cot_info["whisper_output"] = str(metadata["whisper_output"])
+
+        return cot_info
