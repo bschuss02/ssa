@@ -1,9 +1,10 @@
-import webbrowser
-import time
 import os
-from pathlib import Path
-from tqdm import tqdm
 import platform
+import time
+import webbrowser
+from pathlib import Path
+
+from tqdm import tqdm
 
 
 def get_default_download_dir():
@@ -32,7 +33,9 @@ def get_active_downloads(download_dir):
     for file_path in download_path.iterdir():
         if file_path.is_file():
             # Check for temporary download files (common patterns)
-            if file_path.suffix in [".part", ".tmp", ".crdownload"] or file_path.name.endswith(".download"):
+            if file_path.suffix in [".part", ".tmp", ".crdownload"] or file_path.name.endswith(
+                ".download"
+            ):
                 active_downloads.append(str(file_path))
 
             # Check for recently modified files (within last 10 seconds)
