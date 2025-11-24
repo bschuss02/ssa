@@ -9,24 +9,31 @@ hydra:
     dir: .
 
 models:
-  - whisper_v3_medium_multilingual
-  # - staccato
-  - whisper_v3_medium
+  - whisper_v3_medium_chinese
+  - staccato_chinese
+  # - whisper_v3_medium_english
   # - phi_4_multimodal_instruct
   # phi_4_with_stutter_prompt: models/Phi-4-multimodal-instruct
 datasets:
-  - bbbenji
+  # - bbbenji
+  - as70
 
-max_samples_per_dataset: 20
-batch_size: 10
+max_samples_per_dataset: 50
+batch_size: 5
 output_dir: output
 results_dir: output/results
 max_workers: 4
-max_output_tokens: 1024
+max_output_tokens: 2000
 
-data_preprocessing:
-  remove_punctuation: false
-  make_lowercase: false
+eval_preprocessing:
+  remove_punctuation: true
+  make_lowercase: true
+  remove_spaces: true
 
 bbbenji:
   subset: stuttered
+
+cache:
+  enabled: true
+  cache_dir: output/.cache
+  model_version: v1 # Increment this (e.g., v2, v3) to invalidate all previous cache entries when changing models

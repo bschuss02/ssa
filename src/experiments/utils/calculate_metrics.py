@@ -13,13 +13,18 @@ def remove_punctuation_from_text(text: str) -> str:
 
 
 def preprocess_text(
-    text: str, remove_punctuation: bool = False, make_lowercase: bool = False
+    text: str,
+    remove_punctuation: bool = False,
+    make_lowercase: bool = False,
+    remove_spaces: bool = False,
 ) -> str:
     """Preprocess text by removing punctuation and/or converting to lowercase."""
     if make_lowercase:
         text = text.lower()
     if remove_punctuation:
         text = remove_punctuation_from_text(text)
+    if remove_spaces:
+        text = text.replace(" ", "")
     return text
 
 
@@ -28,18 +33,19 @@ def calculate_metrics(
     ground_truth_transcriptions: List[str],
     remove_punctuation: bool = False,
     make_lowercase: bool = False,
+    remove_spaces: bool = False,
 ) -> List[EvaluationMetrics]:
     metrics_batch = []
     for predicted_transcription, ground_truth_transcription in zip(
         predicted_transcriptions, ground_truth_transcriptions
     ):
         # Apply text preprocessing if requested
-        if remove_punctuation or make_lowercase:
+        if remove_punctuation or make_lowercase or remove_spaces:
             predicted_transcription = preprocess_text(
-                predicted_transcription, remove_punctuation, make_lowercase
+                predicted_transcription, remove_punctuation, make_lowercase, remove_spaces
             )
             ground_truth_transcription = preprocess_text(
-                ground_truth_transcription, remove_punctuation, make_lowercase
+                ground_truth_transcription, remove_punctuation, make_lowercase, remove_spaces
             )
 
         wer = jiwer.wer(predicted_transcription, ground_truth_transcription)

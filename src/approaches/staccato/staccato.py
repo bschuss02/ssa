@@ -14,17 +14,35 @@ from experiments.inference_models.asr_model_base import (
 from experiments.utils.audio_utils import load_audio_files
 
 
-class TranscribeStutteredSpeechSignature(dspy.Signature):
-    """You are an expert speech therapist with 20 years of experience helping people who stutter.  People who stutter speak with involuntary sound repetitions, word repetitions, prolongations, and blocks. Your task is to transcribe a recording of a person who stutters speaking English. You must transcribe the words that the speaker INTENDED to say, excluding involuntary disfluencies. You are also given an initial transcription of the recording that was produced by Whisper, an automatic speech recognition model. There may be errors in this transcription because Whisper was not trained on speech data of people who stutter and is known to have poor accuracy on stuttered speech. Your job is to correct the errors in the Whisper transcription and provide a final transcription of the recording."""
+def get_signature_description(language: str) -> str:
+    """Get language-specific signature description."""
+    language_name = "English" if language == "en" else "Chinese" if language == "zh" else language
+    return f"You are an expert speech therapist with 20 years of experience helping people who stutter.  People who stutter speak with involuntary sound repetitions, word repetitions, prolongations, and blocks. Your task is to transcribe a recording of a person who stutters speaking {language_name}. You must transcribe the words that the speaker INTENDED to say, excluding involuntary disfluencies and correcting general transcription errors and omissions. You are also given an initial transcription of the recording that was produced by Whisper, an automatic speech recognition model. There may be errors in this transcription because Whisper was not trained on speech data of people who stutter and is known to have poor accuracy on stuttered speech. The errors could be the addition of words that are actually not spoken in the recording, or the omission of words that actually are spoken in the recording, or the mistranscription of words. Your job is to correct the errors in the Whisper transcription and provide a final transcription of the recording. In order to gain an understanding of the recording, first describe where stuttering occurs in the recording. Reference specific characters in the initial transcript and specific phonemes in the recording, and how this may have influenced the transcription or introduced errors. DO NOT be vague about how stuttering may have affected the transcription or introduced errors. Only talk about specific stuttering events, where they occur in the recording, what type of stuttering they are, etc. If you make a mistake while transcribing, you will be fired from your job. If the language is Chinese, transcribe in Simplified Chinese characters. There may be errors in the initial transcription that are not related to stuttering. There may or may not be any stuttering in the recording. It is up to you to decide. If this is the case, do not try to correct the errors in the initial transcription that are not related to stuttering."
 
-    stuttered_speech_audio: dspy.Audio = dspy.InputField()
-    initial_transcription: str = dspy.InputField()
-
-    revised_transcription: str = dspy.OutputField()
+    # try other initial transcription models
+    # postprocess convert to simplified chinese characters
+    # failing on names and numbers
+    # model is hallucinating to try to make the cutoffs make sense and adding characters that are not there
 
 
 class TranscribeStutteredSpeechModule(dspy.Module):
-    def __init__(self):
+    def __init__(self, language: str):
+        description = get_signature_description(language)
+
+        class TranscribeStutteredSpeechSignature(dspy.Signature):
+            __doc__ = description
+
+            stuttered_speech_audio: dspy.Audio = dspy.InputField()
+            initial_transcription: str = dspy.InputField()
+
+            stuttering_events: str = dspy.OutputField(
+                description="Describe where stuttering occurs in the recording. 1-5 sentences."
+            )
+            analysis: str = dspy.OutputField(
+                description="How the stuttering events may have influenced the transcription or introduced errors. 1-5 sentences."
+            )
+            revised_transcription: str = dspy.OutputField()
+
         self.cot = dspy.ChainOfThought(TranscribeStutteredSpeechSignature)
 
     def forward(self, audio_array: np.ndarray, sample_rate: int, initial_transcription: str) -> str:
@@ -40,18 +58,27 @@ class Staccato(ASRModelBase):
         self,
         model_name: str,
         cfg: EvaluationConfig,
+        language: str,
+        whisper_model_id: str = "openai/whisper-medium",
         lm: str = "gpt-4o-mini-audio-preview-2024-12-17",
     ):
         super().__init__(model_name, cfg)
+        self.language = language
+        self.whisper_model_id = whisper_model_id
         self.lm = lm
         load_dotenv()
 
     def load_model(self):
-        self.whisper_model = WhisperV3Medium("whisper_v3_medium", self.cfg)
+        self.whisper_model = WhisperV3Medium(
+            f"whisper_v3_medium_{self.language}",
+            self.cfg,
+            model_id=self.whisper_model_id,
+            language=self.language,
+        )
         self.whisper_model.load_model()
 
         dspy.configure(lm=dspy.LM(self.lm))
-        self.transcribe_stuttered_speech_module = TranscribeStutteredSpeechModule()
+        self.transcribe_stuttered_speech_module = TranscribeStutteredSpeechModule(self.language)
 
     def transcribe(
         self, transcription_inputs: List[TranscriptionInput]
@@ -77,7 +104,11 @@ class Staccato(ASRModelBase):
         outputs = self.transcribe_stuttered_speech_module.batch(examples=examples)
         return [
             TranscriptionOutput(
-                transcription=output.revised_transcription, metadata={"reasoning": output.reasoning}
+                transcription=output.revised_transcription,
+                metadata={
+                    "output": output,
+                    "whisper_output": initial_transcription_output.transcription,
+                },
             )
-            for output in outputs
+            for output, initial_transcription_output in zip(outputs, initial_transcription_outputs)
         ]

@@ -16,12 +16,16 @@ class AS70Dataset(ASRDatasetBase):
         df_path = Path("data/as70/as70.parquet")
         df = pl.read_parquet(df_path)
 
+        # shuffle the dataset
+        df = df.sample(fraction=1.0, shuffle=True, seed=42)
+        logger.info(f"Shuffled dataset with {len(df)} samples")
+
         df = df.rename({"unannotated_text": "transcript"})
 
         if self.cfg.max_samples_per_dataset > 0:
             df = df.head(self.cfg.max_samples_per_dataset)
             logger.info(
-                f"Filtered Bbbenji dataset to {len(df)} samples for max_samples_per_dataset: {self.cfg.max_samples_per_dataset}"
+                f"Filtered AS70 dataset to {len(df)} samples for max_samples_per_dataset: {self.cfg.max_samples_per_dataset}"
             )
 
         arrow_table = df.to_arrow()

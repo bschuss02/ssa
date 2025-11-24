@@ -110,8 +110,9 @@ class Evaluator:
         metrics_batch = calculate_metrics(
             predicted_transcriptions,
             ground_truth_transcriptions,
-            self.cfg.remove_punctuation,
-            self.cfg.make_lowercase,
+            self.cfg.eval_preprocessing.remove_punctuation,
+            self.cfg.eval_preprocessing.make_lowercase,
+            self.cfg.eval_preprocessing.remove_spaces,
         )
 
         evaluation_results = []

@@ -10,18 +10,18 @@ It extracts audio segments corresponding to each utterance in the .cha files
 and creates a parquet file with annotations and audio file paths.
 """
 
+import argparse
 import re
-import os
+import subprocess
 import sys
-from pathlib import Path
-from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
-import polars as pl
+from pathlib import Path
+from typing import List, Tuple
+
 import librosa
+import polars as pl
 import soundfile as sf
 from tqdm import tqdm
-import subprocess
-import argparse
 
 
 @dataclass
@@ -296,7 +296,9 @@ class FluencyBankExtractor:
 
         return pairs
 
-    def extract_audio_segment(self, video_path: Path, start_time: float, end_time: float, output_path: Path):
+    def extract_audio_segment(
+        self, video_path: Path, start_time: float, end_time: float, output_path: Path
+    ):
         """Extract audio segment from video file using ffmpeg"""
         try:
             # Create temporary file for raw extraction
@@ -455,12 +457,18 @@ class FluencyBankExtractor:
 def main():
     """Main function"""
     # Set up command line arguments
-    parser = argparse.ArgumentParser(description="Extract Fluency Bank dataset from video and .cha files")
-    parser.add_argument(
-        "--skip-existing", action="store_true", help="Skip extracting audio segments that already exist"
+    parser = argparse.ArgumentParser(
+        description="Extract Fluency Bank dataset from video and .cha files"
     )
     parser.add_argument(
-        "--video-dir", type=str, help="Directory containing video files (default: data/fluencybank/raw/video)"
+        "--skip-existing",
+        action="store_true",
+        help="Skip extracting audio segments that already exist",
+    )
+    parser.add_argument(
+        "--video-dir",
+        type=str,
+        help="Directory containing video files (default: data/fluencybank/raw/video)",
     )
     parser.add_argument(
         "--cha-dir",
@@ -479,7 +487,9 @@ def main():
     base_dir = Path("/Users/Benjamin/dev/ssa")
     video_dir = Path(args.video_dir) if args.video_dir else base_dir / "data/fluencybank/raw/video"
     cha_dir = Path(args.cha_dir) if args.cha_dir else base_dir / "data/fluencybank/raw/chat"
-    output_dir = Path(args.output_dir) if args.output_dir else base_dir / "data/fluencybank/processed"
+    output_dir = (
+        Path(args.output_dir) if args.output_dir else base_dir / "data/fluencybank/processed"
+    )
 
     # Check if input directories exist
     if not video_dir.exists():
@@ -504,7 +514,7 @@ def main():
     parquet_file = extractor.extract_all()
 
     if parquet_file:
-        print(f"\nExtraction completed successfully!")
+        print("\nExtraction completed successfully!")
         print(f"Output parquet file: {parquet_file}")
     else:
         print("Extraction failed!")
